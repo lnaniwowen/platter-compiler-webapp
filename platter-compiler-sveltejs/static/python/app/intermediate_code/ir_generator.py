@@ -168,7 +168,11 @@ class IRGenerator:
         self.emit_tac(TACFunctionBegin(node.name))
         self.emit_quad("begin_func", node.name)
         
-        # Parameters are handled by caller (param instructions)
+        # Bind positional params (pushed by caller as p0, p1, ...) to declared names
+        for i, param in enumerate(node.params):
+            self.emit_tac(TACAssignment(param.identifier, f"p{i}"))
+            self.emit_quad("=", f"p{i}", None, param.identifier)
+        
         # Function body
         self.visit_platter(node.body)
         

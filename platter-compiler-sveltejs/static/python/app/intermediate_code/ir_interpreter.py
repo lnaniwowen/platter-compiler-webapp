@@ -113,6 +113,21 @@ class TACInterpreter:
             elif isinstance(instr, TACFunctionBegin):
                 self.func_map[instr.func_name] = i
 
+        # Build FUNC_BEGIN → FUNC_END skip map so we can jump over recipe bodies
+        self.func_skip_map: Dict[int, int] = {}  # pc of FUNC_BEGIN → pc after FUNC_END
+        depth = 0
+        begin_pc = -1
+        for i, instr in enumerate(self.instructions):
+            if isinstance(instr, TACFunctionBegin):
+                depth += 1
+                if depth == 1:
+                    begin_pc = i
+            elif isinstance(instr, TACFunctionEnd):
+                depth -= 1
+                if depth == 0 and begin_pc >= 0:
+                    self.func_skip_map[begin_pc] = i + 1  # resume after FUNC_END
+                    begin_pc = -1
+
         # Runtime state
         self.pc: int = 0
         self.call_stack: List[Dict] = []   # saved frames for call/return
@@ -124,13 +139,15 @@ class TACInterpreter:
 
     def run(self) -> Dict[str, Any]:
         """
-        Execute the program starting from the 'start' function.
+        Execute the program starting from pc=0.
+        Global inits run first, then recipe bodies are skipped until 'start' is reached
+        and executed inline.  Recipe calls go through _call_function as normal.
         Returns a summary dict with output, final global vars, and status.
         """
         if "start" not in self.func_map:
             raise InterpreterError("No 'start' function found in IR.")
 
-        self.pc = self.func_map["start"]
+        self.pc = 0
         try:
             self._execute()
         except ReturnSignal:
@@ -154,6 +171,18 @@ class TACInterpreter:
     def _execute(self):
         while self.pc < len(self.instructions):
             instr = self.instructions[self.pc]
+
+            # When scanning the top-level (we are in the global frame), skip over
+            # recipe bodies — they will be executed only when called via _call_function.
+            # The 'start' body is NOT skipped; it executes inline.
+            if (isinstance(instr, TACFunctionBegin)
+                    and self.current_frame is self.global_frame
+                    and instr.func_name != "start"):
+                skip_to = self.func_skip_map.get(self.pc)
+                if skip_to is not None:
+                    self.pc = skip_to
+                    continue
+
             self.pc += 1
             self._dispatch(instr)
 
