@@ -132,16 +132,16 @@ class IRGenerator:
     
     def visit_array_decl(self, node: ArrayDecl):
         """Generate IR for array declaration"""
-        # Calculate total size based on dimensions
-        # For now, simplified: allocate array
-        size = "unknown"  # In full implementation, calculate from dimensions
-        
+        size = len(node.init_value.elements) if node.init_value and hasattr(node.init_value, 'elements') else "unknown"
+
         self.emit_tac(TACAllocate(node.identifier, size, "array"))
         self.emit_quad("allocate", "array", size, node.identifier)
-        
-        if node.init_value:
-            # Array initialization handled separately
-            pass
+
+        if node.init_value and hasattr(node.init_value, 'elements'):
+            for i, element in enumerate(node.init_value.elements):
+                value_temp = self.visit_expression(element)
+                self.emit_tac(TACArrayAssign(node.identifier, str(i), value_temp))
+                self.emit_quad("[]=", node.identifier, str(i), value_temp)
     
     def visit_table_prototype(self, node: TablePrototype):
         """Generate IR for table prototype (type definition)"""

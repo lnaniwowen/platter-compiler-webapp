@@ -743,16 +743,26 @@ try:
             "errors": error_list,
             "semantic_errors": json.dumps(error_messages),
             "semantic_warnings": json.dumps(warning_messages),
-            "error_markers": error_markers
+            "error_markers": json.dumps(error_markers)
         }
     else:
         # Check for warnings even if no errors
-        warning_list = []
+        warning_messages_success = []
+        warning_markers_success = []
         if error_handler.has_warnings():
             for warn in error_handler.get_errors():
-                warning_list.append(str(warn))
+                if warn.severity.name == "WARNING":
+                    warning_messages_success.append(warn.message)
+                    if warn.line and warn.column:
+                        warning_markers_success.append({
+                            "line": warn.line,
+                            "col": warn.column,
+                            "value": warn.error_code or "semantic_warning",
+                            "message": warn.message,
+                            "severity": "warning"
+                        })
         
-        warning_msg = f" with {error_handler.get_warning_count()} warning(s)" if error_handler.has_warnings() else ""
+        warning_msg = f" with {len(warning_messages_success)} warning(s)" if warning_messages_success else ""
         result = {
             "success": True, 
             "message": f"No semantic errors{warning_msg}",
@@ -761,7 +771,8 @@ try:
             "ir_tac": ir_tac_text,
             "ir_quads": ir_quads_text,
             "ir_tac_optimized": ir_tac_optimized_text,
-            "warnings": warning_list if warning_list else []
+            "semantic_warnings": json.dumps(warning_messages_success),
+            "error_markers": json.dumps(warning_markers_success)
         }
 except SyntaxError as e:
     error_msg = str(e)
@@ -783,9 +794,14 @@ result
 
 				if (data.success) {
 					clearErrorMarkers();
-					const semanticMessage = data.message || 'No semantic errors';
-					const okMessage = `${semanticMessage}\n\nAST, Symbol Table, and IR generated successfully! Check browser console for details.`;
-					setTerminalOk(okMessage);
+					const semWarningsSuccess: string[] = data.semantic_warnings ? JSON.parse(data.semantic_warnings) : [];
+					const warningMarkers = data.error_markers ? JSON.parse(data.error_markers) : [];
+					if (warningMarkers.length > 0) addErrorMarkers(warningMarkers);
+					const okMessage = `AST, Symbol Table, and IR generated successfully! Check browser console for details.`;
+					const successMsgs: { icon: any; text: string }[] = [];
+					successMsgs.push({ icon: check, text: okMessage });
+					for (const msg of semWarningsSuccess) successMsgs.push({ icon: errorIcon, text: `Warning: ${msg}` });
+					termMessages = successMsgs;
 					analysisStatus = 'success';
 					terminalOutput = okMessage;
 					
@@ -849,14 +865,15 @@ result
 					console.log('Error markers received:', data.error_markers);
 					console.log('Number of markers:', data.error_markers?.length || 0);
 					
+					const parsedMarkers = data.error_markers ? JSON.parse(data.error_markers) : [];
 					// Check if we have semantic errors
 					if (data.errors && data.errors.length > 0) {
 						clearErrorMarkers();
 						
 						// Add error markers if position info is available
-						if (data.error_markers && data.error_markers.length > 0) {
+						if (parsedMarkers.length > 0) {
 						console.log('Processing error markers...');
-						const semanticTokens = data.error_markers.map((marker: any) => {
+						const semanticTokens = parsedMarkers.map((marker: any) => {
 							console.log(`  Marker: Line ${marker.line}, Col ${marker.col}, Message: ${marker.message}`);
 							return {
 								type: 'semantic_error',
