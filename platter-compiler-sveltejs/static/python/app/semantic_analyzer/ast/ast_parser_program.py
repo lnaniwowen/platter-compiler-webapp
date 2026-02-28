@@ -1168,7 +1168,15 @@ class ASTParser:
             token_2 = self.tokens[self.pos]
             self.parse_token("]")
 
-            return node_1
+            # If notation_val is None (empty), create empty ArrayLiteral
+            if node_1 is None:
+                return ArrayLiteral([], token_0.line, token_0.col)
+            # If notation_val returns a list, create ArrayLiteral with those elements
+            elif isinstance(node_1, list):
+                return ArrayLiteral(node_1, token_0.line, token_0.col)
+            # Otherwise return as-is
+            else:
+                return node_1
 
         else: self.parse_token(self.error_arr)
 
@@ -5599,11 +5607,13 @@ class ASTParser:
             node_3 = self.strict_piece_expr()
             node_4 = self.flag_eq_tail()
 
-            # Build binary operation: combine left with right tail
-            if node_1:
-                return node_1(node_0)
+            # Build binary operation: first apply arithmetic continuation, then relational op
+            left = node_1(node_0) if node_1 else node_0
+            result = BinaryOp(left, node_2, node_3, None, None)
+            if node_4:
+                return node_4(result)
             else:
-                return node_0
+                return result
 
             """    413 <flag_operand>	=>	<ret_sip>	<cont_sip>	<rel_op>	<strict_sip_expr>	<flag_eq_tail>    """
         elif self.tokens[self.pos].type in PREDICT_SET["<flag_operand>_1"]:
@@ -5613,11 +5623,13 @@ class ASTParser:
             node_3 = self.strict_sip_expr()
             node_4 = self.flag_eq_tail()
 
-            # Build binary operation: combine left with right tail
-            if node_1:
-                return node_1(node_0)
+            # Build binary operation: first apply arithmetic continuation, then relational op
+            left = node_1(node_0) if node_1 else node_0
+            result = BinaryOp(left, node_2, node_3, None, None)
+            if node_4:
+                return node_4(result)
             else:
-                return node_0
+                return result
 
             """    414 <flag_operand>	=>	<ret_flag>	<flag_eq_tail>    """
         elif self.tokens[self.pos].type in PREDICT_SET["<flag_operand>_2"]:
@@ -5638,11 +5650,13 @@ class ASTParser:
             node_3 = self.strict_chars_expr()
             node_4 = self.flag_eq_tail()
 
-            # Build binary operation: combine left with right tail
-            if node_1:
-                return node_1(node_0)
+            # Build binary operation: first apply arithmetic continuation, then relational op
+            left = node_1(node_0) if node_1 else node_0
+            result = BinaryOp(left, node_2, node_3, None, None)
+            if node_4:
+                return node_4(result)
             else:
-                return node_0
+                return result
 
             """    416 <flag_operand>	=>	not	<flag_operand>	<flag_eq_tail>    """
         elif self.tokens[self.pos].type in PREDICT_SET["<flag_operand>_4"]:
@@ -6100,11 +6114,12 @@ class ASTParser:
             node_1 = self.cont_piece()
             node_2 = self.any_cont_p_flag_tail()
 
-            # Build binary operation: combine left with right tail
-            if node_1:
-                return node_1(node_0)
+            # Build binary operation: first apply arithmetic, then relational/logical
+            left = node_1(node_0) if node_1 else node_0
+            if node_2:
+                return node_2(left)
             else:
-                return node_0
+                return left
 
             """    448 <any_expr>	=>	<ret_sip>	<cont_sip>	<any_cont_s_flag_tail>    """
         elif self.tokens[self.pos].type in PREDICT_SET["<any_expr>_1"]:
@@ -6112,11 +6127,12 @@ class ASTParser:
             node_1 = self.cont_sip()
             node_2 = self.any_cont_s_flag_tail()
 
-            # Build binary operation: combine left with right tail
-            if node_1:
-                return node_1(node_0)
+            # Build binary operation: first apply arithmetic, then relational/logical
+            left = node_1(node_0) if node_1 else node_0
+            if node_2:
+                return node_2(left)
             else:
-                return node_0
+                return left
 
             """    449 <any_expr>	=>	<ret_flag>	<flag_op_tail>    """
         elif self.tokens[self.pos].type in PREDICT_SET["<any_expr>_2"]:
@@ -6135,11 +6151,12 @@ class ASTParser:
             node_1 = self.cont_chars()
             node_2 = self.any_cont_c_flag_tail()
 
-            # Build binary operation: combine left with right tail
-            if node_1:
-                return node_1(node_0)
+            # Build binary operation: first apply arithmetic, then relational/logical
+            left = node_1(node_0) if node_1 else node_0
+            if node_2:
+                return node_2(left)
             else:
-                return node_0
+                return left
 
             """    451 <any_expr>	=>	<id>	<any_cont_any>    """
         elif self.tokens[self.pos].type in PREDICT_SET["<any_expr>_4"]:

@@ -42,6 +42,13 @@ class TypeChecker:
     def _check_ingr_decl(self, node: IngrDecl):
         """Check ingredient declaration type consistency"""
         if node.init_value:
+            # Special case: empty array literals are compatible with any array type
+            if isinstance(node.init_value, ArrayLiteral) and not node.init_value.elements:
+                ingredient_type = TypeInfo(node.data_type, 0)
+                if ingredient_type.dimensions > 0:
+                    # Empty array is compatible with any array type
+                    return
+            
             init_type = self._get_expression_type(node.init_value)
             if init_type:
                 ingredient_type = TypeInfo(node.data_type, 0)
@@ -56,6 +63,13 @@ class TypeChecker:
     def _check_array_decl(self, node: ArrayDecl):
         """Check array declaration type consistency"""
         if node.init_value:
+            # Special case: empty array literals are compatible with any array type
+            if isinstance(node.init_value, ArrayLiteral) and not node.init_value.elements:
+                dims = node.dimensions if node.dimensions is not None else 0
+                if dims > 0:
+                    # Empty array is compatible with any array type
+                    return
+            
             init_type = self._get_expression_type(node.init_value)
             if init_type:
                 dims = node.dimensions if node.dimensions is not None else 0
@@ -153,6 +167,13 @@ class TypeChecker:
     def _check_assignment(self, node: Assignment):
         """Check assignment type compatibility"""
         target_type = self._get_expression_type(node.target)
+        
+        # Special case: empty array literals are compatible with any array type
+        if isinstance(node.value, ArrayLiteral) and not node.value.elements:
+            if target_type and target_type.dimensions > 0:
+                # Empty array is compatible with any array type
+                return
+        
         value_type = self._get_expression_type(node.value)
         
         if target_type and value_type:
@@ -171,6 +192,19 @@ class TypeChecker:
         expected_type = self.symbol_table.current_function.type_info
         
         if node.value:
+            # Special case: empty array literals are compatible with any array type
+            if isinstance(node.value, ArrayLiteral) and not node.value.elements:
+                if expected_type.dimensions > 0:
+                    # Empty array is compatible with any array type
+                    return
+                else:
+                    self.error_handler.add_error(
+                        f"Cannot serve empty array when recipe expects {expected_type}",
+                        node,
+                        ErrorCodes.INVALID_SERVE_TYPE
+                    )
+                    return
+            
             actual_type = self._get_expression_type(node.value)
             if actual_type and not expected_type.is_compatible_with(actual_type):
                 self.error_handler.add_error(
@@ -329,6 +363,9 @@ class TypeChecker:
             # Arithmetic operations
             if left_type.base_type in ["piece", "sip"]:
                 return left_type
+            elif left_type.base_type == "chars" and node.operator == '+':
+                # String concatenation
+                return left_type
             else:
                 self.error_handler.add_error(
                     f"Invalid type for arithmetic operation: {left_type}",
@@ -339,7 +376,7 @@ class TypeChecker:
         elif node.operator in ['==', '!=', '<', '>', '<=', '>=']:
             # Comparison operations return flag (boolean)
             return TypeInfo("flag", 0)
-        elif node.operator in ['&&', '||']:
+        elif node.operator in ['and', 'or']:
             # Logical operations
             return TypeInfo("flag", 0)
         else:
