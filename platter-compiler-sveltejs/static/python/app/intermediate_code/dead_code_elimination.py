@@ -65,8 +65,9 @@ class DeadCodeEliminationPass(OptimizationPass):
         
         for instr in instructions:
             if skip_until_label:
-                # Skip until we hit a label or function begin
-                if isinstance(instr, (TACLabel, TACFunctionBegin)):
+                # Skip until we hit a new control-flow boundary
+                # Keep function boundaries intact (FUNC_END is required by interpreter)
+                if isinstance(instr, (TACLabel, TACFunctionBegin, TACFunctionEnd)):
                     skip_until_label = False
                     reachable.append(instr)
                 else:
@@ -146,7 +147,7 @@ class DeadCodeEliminationPass(OptimizationPass):
         
         for quad in quads:
             if skip_until_label:
-                if quad.operator in ['label', 'begin_func']:
+                if quad.operator in ['label', 'begin_func', 'end_func']:
                     skip_until_label = False
                     reachable.append(quad)
                 else:
