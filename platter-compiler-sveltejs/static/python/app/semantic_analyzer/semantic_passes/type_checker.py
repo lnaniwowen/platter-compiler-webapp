@@ -209,6 +209,17 @@ class TypeChecker:
     
     def _check_assignment(self, node: Assignment):
         """Check assignment type compatibility"""
+        # Check if trying to assign to a recipe (which is not allowed)
+        if isinstance(node.target, Identifier):
+            symbol = self.symbol_table.lookup_symbol(node.target.name)
+            if symbol and symbol.kind == SymbolKind.FUNCTION:
+                self.error_handler.add_error(
+                    f"Cannot assign to recipe '{node.target.name}'. Recipes are not assignable.",
+                    node.target,
+                    ErrorCodes.INVALID_ASSIGNMENT_TARGET
+                )
+                return
+        
         target_type = self._get_expression_type(node.target)
         
         # Special case: empty array literals are compatible with any array type

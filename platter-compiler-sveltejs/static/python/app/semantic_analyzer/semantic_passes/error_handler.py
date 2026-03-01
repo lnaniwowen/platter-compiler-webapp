@@ -163,6 +163,7 @@ class ErrorCodes:
     INVALID_CAST = "E103"
     INCOMPATIBLE_TYPES = "E104"
     INVALID_OPERATION = "E105"
+    INVALID_ASSIGNMENT_TARGET = "E106"
     
     # Array/Table errors
     INVALID_ARRAY_ACCESS = "E201"
