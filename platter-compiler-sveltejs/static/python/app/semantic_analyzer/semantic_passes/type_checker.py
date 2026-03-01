@@ -110,9 +110,9 @@ class TypeChecker:
                     
                     # Check if field value type matches expected type
                     expected_field_type = table_type.table_fields[field_name]
-                    actual_field_type = self._get_expression_type(value)
+                    actual_field_type = self._get_expression_type(value, expected_field_type)
                     
-                    if actual_field_type and not expected_field_type.is_compatible_with(actual_field_type):
+                    if actual_field_type and not expected_field_type.is_exact_match(actual_field_type):
                         self.error_handler.add_error(
                             f"Field '{field_name}' type mismatch: expected {expected_field_type}, got {actual_field_type}",
                             node,
@@ -199,7 +199,8 @@ class TypeChecker:
                 # Empty array is compatible with any array type
                 return
         
-        value_type = self._get_expression_type(node.value)
+        # Pass target type as expected type for context-aware inference
+        value_type = self._get_expression_type(node.value, target_type)
         
         if target_type and value_type:
             if not target_type.is_exact_match(value_type):
@@ -236,7 +237,7 @@ class TypeChecker:
                         
                         # Check if field value type matches expected type
                         expected_field_type = table_type_symbol.table_fields[field_name]
-                        actual_field_type = self._get_expression_type(value)
+                        actual_field_type = self._get_expression_type(value, expected_field_type)
                         
                         if actual_field_type and not expected_field_type.is_compatible_with(actual_field_type):
                             self.error_handler.add_error(
@@ -360,8 +361,13 @@ class TypeChecker:
                 self._check_assignment(node.update)
         self._check_platter(node.body)
     
-    def _get_expression_type(self, expr: ASTNode) -> Optional[TypeInfo]:
-        """Get the type of an expression"""
+    def _get_expression_type(self, expr: ASTNode, expected_type: Optional[TypeInfo] = None) -> Optional[TypeInfo]:
+        """Get the type of an expression
+        
+        Args:
+            expr: The expression to get the type of
+            expected_type: Optional expected type for context-aware inference
+        """
         if expr is None:
             return None
         
@@ -382,9 +388,9 @@ class TypeChecker:
         elif isinstance(expr, CastExpr):
             return self._get_cast_type(expr)
         elif isinstance(expr, ArrayLiteral):
-            return self._get_array_literal_type(expr)
+            return self._get_array_literal_type(expr, expected_type)
         elif isinstance(expr, TableLiteral):
-            return self._get_table_literal_type(expr)
+            return self._get_table_literal_type(expr, expected_type)
         
         return None
     
@@ -618,21 +624,31 @@ class TypeChecker:
         
         return target_type
     
-    def _get_array_literal_type(self, node: ArrayLiteral) -> Optional[TypeInfo]:
-        """Get type of array literal"""
+    def _get_array_literal_type(self, node: ArrayLiteral, expected_type: Optional[TypeInfo] = None) -> Optional[TypeInfo]:
+        """Get type of array literal
+        
+        Args:
+            node: The array literal node
+            expected_type: Optional expected array type for context-aware inference
+        """
         if not node.elements:
             # Empty array literal - treat as 1D array of unknown base type
             # This allows dimension checking for nested empty arrays like [[],[]]
             return TypeInfo("unknown", 1)
         
-        # Get type of first element
-        first_type = self._get_expression_type(node.elements[0])
+        # Determine expected element type if we have an expected array type
+        expected_element_type = None
+        if expected_type and expected_type.dimensions > 0:
+            expected_element_type = expected_type.get_element_type()
+        
+        # Get type of first element with expected type context
+        first_type = self._get_expression_type(node.elements[0], expected_element_type)
         if not first_type:
             return None
         
         # Check all elements have same type
         for elem in node.elements[1:]:
-            elem_type = self._get_expression_type(elem)
+            elem_type = self._get_expression_type(elem, expected_element_type)
             if elem_type and not first_type.is_compatible_with(elem_type):
                 self.error_handler.add_error(
                     f"Array literal has inconsistent element types: {first_type} and {elem_type}",
@@ -643,9 +659,34 @@ class TypeChecker:
         # Return array type with one more dimension
         return TypeInfo(first_type.base_type, first_type.dimensions + 1, first_type.table_fields if first_type.is_table else None)
     
-    def _get_table_literal_type(self, node: TableLiteral) -> Optional[TypeInfo]:
-        """Get type of table literal"""
-        # Build field types from literal
+    def _get_table_literal_type(self, node: TableLiteral, expected_type: Optional[TypeInfo] = None) -> Optional[TypeInfo]:
+        """Get type of table literal
+        
+        Args:
+            node: The table literal node
+            expected_type: Optional expected table type for context-aware inference
+        """
+        # If expected type is a table type, use it for inference
+        if expected_type and expected_type.is_table:
+            # Look up the table type definition
+            table_type_symbol = self.symbol_table.lookup_table_type(expected_type.base_type)
+            if table_type_symbol and table_type_symbol.table_fields:
+                # Validate literal fields against expected table type
+                for field_name, value, line, col in node.field_inits:
+                    expected_field_type = table_type_symbol.table_fields.get(field_name)
+                    if expected_field_type:
+                        # Get actual field type and validate
+                        field_type = self._get_expression_type(value, expected_field_type)
+                        if field_type and not expected_field_type.is_exact_match(field_type):
+                            self.error_handler.add_error(
+                                f"Type mismatch in table literal: field '{field_name}' expects {expected_field_type}, got {field_type}",
+                                node,
+                                ErrorCodes.TYPE_MISMATCH
+                            )
+                # Return the expected table type
+                return TypeInfo(expected_type.base_type, 0, table_type_symbol.table_fields)
+        
+        # Fallback: Build field types from literal
         field_types = {}
         for field_name, value, line, col in node.field_inits:
             field_type = self._get_expression_type(value)
@@ -653,5 +694,4 @@ class TypeChecker:
                 field_types[field_name] = field_type
         
         # Create synthetic table type
-        # Note: Should match against expected type from context
         return TypeInfo("anonymous_table", 0, field_types)

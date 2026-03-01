@@ -1197,12 +1197,22 @@ class ASTParser:
         elif self.tokens[self.pos].type in PREDICT_SET["<notation_val>_1"]:
             token_0 = self.tokens[self.pos]
             self.parse_token("id")
+            # Save previous context identifier to avoid clobbering in nested structures
+            saved_context_id = self._context_identifier
+            saved_context_line = self._context_identifier_line
+            saved_context_col = self._context_identifier_col
+            
             # Set identifier context for subsequent parsing
             self._context_identifier = token_0.value
             self._context_identifier_line = token_0.line
             self._context_identifier_col = token_0.col
             node_1 = self.array_or_table()
 
+            # Restore previous context after parsing nested structure
+            self._context_identifier = saved_context_id
+            self._context_identifier_line = saved_context_line
+            self._context_identifier_col = saved_context_col
+            
             return node_1
 
             """    87 <notation_val>	=>	    """
@@ -1267,7 +1277,13 @@ class ASTParser:
             node_3 = self.element_value_tail()
 
             # Collect: [ArrayLiteral($1)] + $3
-            result = [ArrayLiteral(node_1, token_0.line, token_0.col)] + node_3
+            # If node_1 is a TableLiteral, don't wrap it - use it as the element directly
+            if isinstance(node_1, TableLiteral):
+                result = [node_1] + node_3
+            else:
+                # Ensure node_1 is a list (wrap single nodes)
+                elements = node_1 if isinstance(node_1, list) else ([node_1] if node_1 is not None else [])
+                result = [ArrayLiteral(elements, token_0.line, token_0.col)] + node_3
             return result
 
         else: self.parse_token(self.error_arr)
@@ -1363,7 +1379,13 @@ class ASTParser:
             node_3 = self.element_piece_tail()
 
             # Collect: [ArrayLiteral($1)] + $3
-            result = [ArrayLiteral(node_1, token_0.line, token_0.col)] + node_3
+            # If node_1 is a TableLiteral, don't wrap it - use it as the element directly
+            if isinstance(node_1, TableLiteral):
+                result = [node_1] + node_3
+            else:
+                # Ensure node_1 is a list (wrap single nodes)
+                elements = node_1 if isinstance(node_1, list) else ([node_1] if node_1 is not None else [])
+                result = [ArrayLiteral(elements, token_0.line, token_0.col)] + node_3
             return result
 
         else: self.parse_token(self.error_arr)
@@ -1449,7 +1471,13 @@ class ASTParser:
             node_3 = self.element_sip_tail()
 
             # Collect: [ArrayLiteral($1)] + $3
-            result = [ArrayLiteral(node_1, token_0.line, token_0.col)] + node_3
+            # If node_1 is a TableLiteral, don't wrap it - use it as the element directly
+            if isinstance(node_1, TableLiteral):
+                result = [node_1] + node_3
+            else:
+                # Ensure node_1 is a list (wrap single nodes)
+                elements = node_1 if isinstance(node_1, list) else ([node_1] if node_1 is not None else [])
+                result = [ArrayLiteral(elements, token_0.line, token_0.col)] + node_3
             return result
 
         else: self.parse_token(self.error_arr)
@@ -1535,7 +1563,13 @@ class ASTParser:
             node_3 = self.element_chars_tail()
 
             # Collect: [ArrayLiteral($1)] + $3
-            result = [ArrayLiteral(node_1, token_0.line, token_0.col)] + node_3
+            # If node_1 is a TableLiteral, don't wrap it - use it as the element directly
+            if isinstance(node_1, TableLiteral):
+                result = [node_1] + node_3
+            else:
+                # Ensure node_1 is a list (wrap single nodes)
+                elements = node_1 if isinstance(node_1, list) else ([node_1] if node_1 is not None else [])
+                result = [ArrayLiteral(elements, token_0.line, token_0.col)] + node_3
             return result
 
         else: self.parse_token(self.error_arr)
@@ -1621,7 +1655,13 @@ class ASTParser:
             node_3 = self.element_flag_tail()
 
             # Collect: [ArrayLiteral($1)] + $3
-            result = [ArrayLiteral(node_1, token_0.line, token_0.col)] + node_3
+            # If node_1 is a TableLiteral, don't wrap it - use it as the element directly
+            if isinstance(node_1, TableLiteral):
+                result = [node_1] + node_3
+            else:
+                # Ensure node_1 is a list (wrap single nodes)
+                elements = node_1 if isinstance(node_1, list) else ([node_1] if node_1 is not None else [])
+                result = [ArrayLiteral(elements, token_0.line, token_0.col)] + node_3
             return result
 
         else: self.parse_token(self.error_arr)
@@ -2377,6 +2417,8 @@ class ASTParser:
             self._context_identifier = token_0.value
             self._context_identifier_line = token_0.line
             self._context_identifier_col = token_0.col
+            # Also set context type for table declarations
+            self._context_type = token_0.value
             node_1 = self.local_id_tail()
 
             # Collect: $1
@@ -2406,8 +2448,8 @@ class ASTParser:
             self.parse_token(";")
             node_3 = self.local_decl()
 
-            # Collect: [TableDecl(CONTEXT,$1)] + $3
-            result = [TableDecl(self._context_dimensions,node_1)] + node_3
+            # Collect: $1 + $3
+            result = node_1 + node_3
             return result
 
             """    179 <local_id_tail>	=>	[	<endsb_tail>    """
@@ -2422,6 +2464,11 @@ class ASTParser:
 
             """    180 <local_id_tail>	=>	<table_accessor>	<assignment_op>	<value>	;	<statements>    """
         elif self.tokens[self.pos].type in PREDICT_SET["<local_id_tail>_2"]:
+            # Save context identifier before parsing value (to avoid overwriting by nested table literals)
+            saved_context_id = self._context_identifier
+            saved_context_line = self._context_identifier_line
+            saved_context_col = self._context_identifier_col
+            
             node_0 = self.table_accessor()
             node_1 = self.assignment_op()
             node_2 = self.value()
@@ -2429,8 +2476,9 @@ class ASTParser:
             self.parse_token(";")
             node_4 = self.statements()
 
+            # Restore context identifier for building assignment target
             # Collect: [Assignment(($0(Identifier(CONTEXT)) if $0 else Identifier(CONTEXT)), $1, $2)] + $4
-            base_id = Identifier(self._context_identifier, self._context_identifier_line, self._context_identifier_col)
+            base_id = Identifier(saved_context_id, saved_context_line, saved_context_col)
             result = [Assignment((node_0(base_id) if node_0 else base_id), node_1, node_2)] + node_4
             return result
 
@@ -3419,6 +3467,11 @@ class ASTParser:
         elif self.tokens[self.pos].type in PREDICT_SET["<local_decl_menu>_4"]:
             token_0 = self.tokens[self.pos]
             self.parse_token("id")
+            # Set context type for table declarations
+            self._context_type = token_0.value
+            self._context_identifier = token_0.value
+            self._context_identifier_line = token_0.line
+            self._context_identifier_col = token_0.col
             node_1 = self.local_id_tail_menu()
 
             # Collect: $1
@@ -3448,8 +3501,8 @@ class ASTParser:
             self.parse_token(";")
             node_3 = self.local_decl_menu()
 
-            # Collect: [TableDecl(CONTEXT,$1)] + $3
-            result = [TableDecl(self._context_dimensions,node_1)] + node_3
+            # Collect: $1 + $3
+            result = node_1 + node_3
             return result
 
             """    254 <local_id_tail_menu>	=>	[	<endsb_tail_menu>    """
@@ -3464,6 +3517,11 @@ class ASTParser:
 
             """    255 <local_id_tail_menu>	=>	<table_accessor>	<assignment_op>	<value>	;	<statements_menu>    """
         elif self.tokens[self.pos].type in PREDICT_SET["<local_id_tail_menu>_2"]:
+            # Save context identifier before parsing value (to avoid overwriting by nested table literals)
+            saved_context_id = self._context_identifier
+            saved_context_line = self._context_identifier_line
+            saved_context_col = self._context_identifier_col
+            
             node_0 = self.table_accessor()
             node_1 = self.assignment_op()
             node_2 = self.value()
@@ -3471,8 +3529,10 @@ class ASTParser:
             self.parse_token(";")
             node_4 = self.statements_menu()
 
-            # Collect: [Assignment(($0(CONTEXT) if $0 else CONTEXT), $1, $2)] + $4
-            result = [Assignment((node_0(self._context_dimensions, token_3.line, token_3.col) if node_0 else self._context_dimensions), node_1, node_2)] + node_4
+            # Restore context identifier for building assignment target
+            # Collect: [Assignment(($0(Identifier(CONTEXT)) if $0 else Identifier(CONTEXT)), $1, $2)] + $4
+            base_id = Identifier(saved_context_id, saved_context_line, saved_context_col)
+            result = [Assignment((node_0(base_id) if node_0 else base_id), node_1, node_2)] + node_4
             return result
 
             """    256 <local_id_tail_menu>	=>	<assignment_op>	<value>	;	<statements_menu>    """
@@ -3735,6 +3795,11 @@ class ASTParser:
         elif self.tokens[self.pos].type in PREDICT_SET["<local_decl_loop>_4"]:
             token_0 = self.tokens[self.pos]
             self.parse_token("id")
+            # Set context type for table declarations
+            self._context_type = token_0.value
+            self._context_identifier = token_0.value
+            self._context_identifier_line = token_0.line
+            self._context_identifier_col = token_0.col
             node_1 = self.local_id_tail_loop()
 
             # Collect: $1
@@ -3764,8 +3829,8 @@ class ASTParser:
             self.parse_token(";")
             node_3 = self.local_decl_loop()
 
-            # Collect: [TableDecl(CONTEXT,$1)] + $3
-            result = [TableDecl(self._context_dimensions,node_1)] + node_3
+            # Collect: $1 + $3
+            result = node_1 + node_3
             return result
 
             """    276 <local_id_tail_loop>	=>	[	<endsb_tail_loop>    """
@@ -3780,6 +3845,11 @@ class ASTParser:
 
             """    277 <local_id_tail_loop>	=>	<table_accessor>	<assignment_op>	<value>	;	<statements_loop>    """
         elif self.tokens[self.pos].type in PREDICT_SET["<local_id_tail_loop>_2"]:
+            # Save context identifier before parsing value (to avoid overwriting by nested table literals)
+            saved_context_id = self._context_identifier
+            saved_context_line = self._context_identifier_line
+            saved_context_col = self._context_identifier_col
+            
             node_0 = self.table_accessor()
             node_1 = self.assignment_op()
             node_2 = self.value()
@@ -3787,8 +3857,10 @@ class ASTParser:
             self.parse_token(";")
             node_4 = self.statements_loop()
 
-            # Collect: [Assignment(($0(CONTEXT) if $0 else CONTEXT), $1, $2)] + $4
-            result = [Assignment((node_0(self._context_dimensions, token_3.line, token_3.col) if node_0 else self._context_dimensions), node_1, node_2)] + node_4
+            # Restore context identifier for building assignment target
+            # Collect: [Assignment(($0(Identifier(CONTEXT)) if $0 else Identifier(CONTEXT)), $1, $2)] + $4
+            base_id = Identifier(saved_context_id, saved_context_line, saved_context_col)
+            result = [Assignment((node_0(base_id) if node_0 else base_id), node_1, node_2)] + node_4
             return result
 
             """    278 <local_id_tail_loop>	=>	<assignment_op>	<value>	;	<statements_loop>    """
