@@ -70,10 +70,28 @@ class TypeChecker:
                     # Empty array is compatible with any array type
                     return
             
-            init_type = self._get_expression_type(node.init_value)
+            # Create expected array type
+            dims = node.dimensions if node.dimensions is not None else 0
+            array_type = TypeInfo(node.data_type, dims)
+            
+            # Check if data_type is a valid type (primitive or table)
+            if node.data_type not in ["piece", "sip", "chars", "flag"]:
+                # It's a table type - check if it exists
+                table_type = self.symbol_table.lookup_table_type(node.data_type)
+                if not table_type:
+                    self.error_handler.add_error(
+                        f"Undefined table type '{node.data_type}'",
+                        node,
+                        ErrorCodes.UNDEFINED_TYPE
+                    )
+                    return
+                # Mark it as a table type and add table fields
+                array_type.is_table = True
+                array_type.table_fields = table_type.table_fields
+            
+            # Get init type with expected type context for validation
+            init_type = self._get_expression_type(node.init_value, array_type)
             if init_type:
-                dims = node.dimensions if node.dimensions is not None else 0
-                array_type = TypeInfo(node.data_type, dims)
                 if not array_type.is_exact_match(init_type):
                     self.error_handler.add_error(
                         f"Type mismatch in array '{node.identifier}' initialization: "
@@ -191,6 +209,17 @@ class TypeChecker:
     
     def _check_assignment(self, node: Assignment):
         """Check assignment type compatibility"""
+        # Check if trying to assign to a recipe (which is not allowed)
+        if isinstance(node.target, Identifier):
+            symbol = self.symbol_table.lookup_symbol(node.target.name)
+            if symbol and symbol.kind == SymbolKind.FUNCTION:
+                self.error_handler.add_error(
+                    f"Cannot assign to recipe '{node.target.name}'. Recipes are not assignable.",
+                    node.target,
+                    ErrorCodes.INVALID_ASSIGNMENT_TARGET
+                )
+                return
+        
         target_type = self._get_expression_type(node.target)
         
         # Special case: empty array literals are compatible with any array type
@@ -282,12 +311,24 @@ class TypeChecker:
     
     def _check_check_statement(self, node: CheckStatement):
         """Check check statement (check/alt/instead)"""
-        # Check condition is flag-compatible
+        # Check condition must be a comparison expression (BinaryOp), not just a flag variable
+        from app.semantic_analyzer.ast.ast_nodes import BinaryOp, Identifier
+        
         cond_type = self._get_expression_type(node.condition)
-        if cond_type and cond_type.base_type not in ["flag", "piece", "sip"]:
-            self.error_handler.add_warning(
-                f"Condition should be flag type, got {cond_type}",
-                node.condition
+        
+        # First check if the type is not flag at all
+        if cond_type and cond_type.base_type != "flag":
+            self.error_handler.add_error(
+                f"Check condition must be flag type, got {cond_type}",
+                node.condition,
+                ErrorCodes.TYPE_MISMATCH
+            )
+        # If it is flag type but just an identifier (not an expression)
+        elif isinstance(node.condition, Identifier) and cond_type and cond_type.base_type == "flag":
+            self.error_handler.add_error(
+                f"Check condition must be flag bearing expression, not identifier",
+                node.condition,
+                ErrorCodes.TYPE_MISMATCH
             )
         
         # Check branches
@@ -303,17 +344,31 @@ class TypeChecker:
         # Get menu expression type
         menu_type = self._get_expression_type(node.expr)
         
+        # Track choice values to detect duplicates
+        seen_values = []
+        
         # Check choices
         for case in node.cases:
             # Check choice value type matches menu expression type
-            for value in case.values:
-                case_type = self._get_expression_type(value)
-                if menu_type and case_type and not menu_type.is_compatible_with(case_type):
+            case_type = self._get_expression_type(case.value)
+            if menu_type and case_type and not menu_type.is_compatible_with(case_type):
+                self.error_handler.add_error(
+                    f"Choice value type {case_type} does not match menu expression type {menu_type}",
+                    case.value,
+                    ErrorCodes.TYPE_MISMATCH
+                )
+            
+            # Check for duplicate choice values
+            if isinstance(case.value, Literal):
+                value_str = str(case.value.value)
+                if value_str in seen_values:
                     self.error_handler.add_error(
-                        f"Choice value type {case_type} does not match menu expression type {menu_type}",
-                        value,
-                        ErrorCodes.TYPE_MISMATCH
+                        f"Duplicate choice value: {value_str}",
+                        case.value,
+                        ErrorCodes.DUPLICATE_SYMBOL
                     )
+                else:
+                    seen_values.append(value_str)
             
             # Check choice statements
             for stmt in case.statements:
@@ -412,6 +467,23 @@ class TypeChecker:
         
         if not left_type or not right_type:
             return None
+        
+        # Check for division by zero
+        if node.operator in ['/', '%']:
+            if isinstance(node.right, Literal):
+                # Check if literal is zero
+                if node.right.value_type in ["piece", "sip"]:
+                    try:
+                        value = float(node.right.value) if node.right.value_type == "sip" else int(node.right.value)
+                        if value == 0:
+                            self.error_handler.add_error(
+                                f"Cannot divide by 0",
+                                node,
+                                ErrorCodes.DIVISION_BY_ZERO
+                            )
+                            return None
+                    except (ValueError, TypeError):
+                        pass  # If we can't parse the value, let other checks handle it
         
         # Determine result type based on operator
         if node.operator in ['+', '-', '*', '/', '%']:
@@ -534,6 +606,23 @@ class TypeChecker:
                 ErrorCodes.INVALID_ARRAY_ACCESS
             )
             return None
+        
+        # Bounds checking for constant indices
+        if isinstance(node.index, Literal) and node.index.value_type == "piece":
+            try:
+                index_value = int(node.index.value)
+                # Get the array size if available
+                if array_type.array_sizes and len(array_type.array_sizes) > 0:
+                    array_size = array_type.array_sizes[0]
+                    if index_value < 0 or index_value >= array_size:
+                        self.error_handler.add_error(
+                            f"Array index {index_value} out of bounds (array size: {array_size})",
+                            node.index,
+                            ErrorCodes.ARRAY_OUT_OF_BOUNDS
+                        )
+            except (ValueError, TypeError):
+                # If we can't convert to int, skip bounds checking
+                pass
         
         # Return element type
         return array_type.get_element_type()

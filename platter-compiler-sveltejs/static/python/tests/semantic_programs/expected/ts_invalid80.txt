@@ -1,0 +1,1 @@
+[ERROR] [E106] Cannot assign to recipe 'compute'. Recipes are not assignable. at line 6, column 5

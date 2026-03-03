@@ -2529,8 +2529,11 @@ class ASTParser:
             self.parse_token(";")
             node_6 = self.local_decl()
 
-            # Collect: [ArrayDecl(CONTEXT,$1,$3.value,$4)] + $6
-            result = [ArrayDecl(self._context_dimensions,node_1,token_3.value,node_4, token_3.line, token_3.col)] + node_6
+            # Calculate dimensions: 1 (for the already parsed []) + dimensions_tail result
+            # This matches how dimensions() calculates: 1 + (node_2 if node_2 else 0)
+            dims = 1 + (node_1 if node_1 else 0)
+            # Collect: [ArrayDecl(CONTEXT_TYPE, dims, $3.value,$4)] + $6
+            result = [ArrayDecl(self._context_type, dims, token_3.value, node_4, token_3.line, token_3.col)] + node_6
             return result
 
             """    184 <endsb_tail>	=>	<array_accessor_val>	<assignment_op>	<value>	;	<statements>    """
@@ -3175,10 +3178,17 @@ class ASTParser:
             node_2 = self.strict_piece_chars_expr()
             token_3 = self.tokens[self.pos]
             self.parse_token(")")
-            node_4 = self.menu_platter()
+            
+            # Parse menu_platter manually to separate cases and default
+            token_bracket = self.tokens[self.pos]
+            self.parse_token("{")
+            cases = self.choice_clause()
+            default = self.usual_clause()
+            token_close_bracket = self.tokens[self.pos]
+            self.parse_token("}")
 
-            # Create MenuStatement node
-            node = MenuStatement(node_2, node_4, token_0.line, token_0.col)
+            # Create MenuStatement node with separated cases and default
+            node = MenuStatement(node_2, cases, default if default else None, token_0.line, token_0.col)
             return node
         else: self.parse_token(self.error_arr)
 
@@ -4119,10 +4129,17 @@ class ASTParser:
             node_2 = self.strict_piece_chars_expr()
             token_3 = self.tokens[self.pos]
             self.parse_token(")")
-            node_4 = self.menu_loop_platter()
+            
+            # Parse menu_loop_platter manually to separate cases and default
+            token_bracket = self.tokens[self.pos]
+            self.parse_token("{")
+            cases = self.choice_clause_loop()
+            default = self.usual_clause_loop()
+            token_close_bracket = self.tokens[self.pos]
+            self.parse_token("}")
 
-            # Create MenuStatement node
-            node = MenuStatement(node_2, node_4, token_0.line, token_0.col)
+            # Create MenuStatement node with separated cases and default
+            node = MenuStatement(node_2, cases, default if default else None, token_0.line, token_0.col)
             return node
         else: self.parse_token(self.error_arr)
 
@@ -5249,7 +5266,12 @@ class ASTParser:
             self.parse_token("id")
             node_1 = self.id_tail()
 
-            return Identifier(token_0.value, token_0.line, token_0.col)
+            # Build accessor: id token with tail (same pattern as id_())
+            base = Identifier(token_0.value, token_0.line, token_0.col)
+            if node_1:
+                return node_1(base)
+            else:
+                return base
 
             """    375 <strict_array_expr>	=>	<ret_array>    """
         elif self.tokens[self.pos].type in PREDICT_SET["<strict_array_expr>_2"]:
