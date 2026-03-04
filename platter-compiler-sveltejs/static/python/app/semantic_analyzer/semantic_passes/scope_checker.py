@@ -36,7 +36,7 @@ class ScopeChecker:
         
         # Check start_platter if present (navigate to its existing scope)
         if ast_root.start_platter:
-            if self.symbol_table.navigate_to_scope("start_platter_1"):
+            if self.symbol_table.navigate_to_scope("start_platter"):
                 self._check_platter(ast_root.start_platter)
                 self.symbol_table.exit_scope()
         

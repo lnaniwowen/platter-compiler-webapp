@@ -35,7 +35,7 @@ class TypeChecker:
         
         # Check start_platter if present (navigate to its existing scope)
         if ast_root.start_platter:
-            if self.symbol_table.navigate_to_scope("start_platter_1"):
+            if self.symbol_table.navigate_to_scope("start_platter"):
                 self._check_platter(ast_root.start_platter)
                 self.symbol_table.exit_scope()
     
@@ -230,6 +230,7 @@ class TypeChecker:
         
         # Pass target type as expected type for context-aware inference
         value_type = self._get_expression_type(node.value, target_type)
+        print(f"DEBUG ASSIGN LINE {node.line}: target={target_type.__repr__()}, value_node={type(node.value)}, value_type={value_type.__repr__() if value_type else 'None'}, expected target_type={target_type}")
         
         if target_type and value_type:
             if not target_type.is_exact_match(value_type):
@@ -620,6 +621,14 @@ class TypeChecker:
                             node.index,
                             ErrorCodes.ARRAY_OUT_OF_BOUNDS
                         )
+                else:
+                    # Array has no size information - treat as uninitialized/empty array (size 0)
+                    # Any access to an uninitialized array is out of bounds
+                    self.error_handler.add_error(
+                        f"Array index {index_value} out of bounds (array is uninitialized/empty, size: 0)",
+                        node.index,
+                        ErrorCodes.ARRAY_OUT_OF_BOUNDS
+                    )
             except (ValueError, TypeError):
                 # If we can't convert to int, skip bounds checking
                 pass
@@ -672,6 +681,8 @@ class TypeChecker:
             # Find matching overload
             builtin_overload = find_compatible_builtin_overload(node.name, arg_types)
             if builtin_overload:
+                # Validate built-in recipe constraints
+                self._validate_builtin_recipe_call(node)
                 return builtin_overload.get_return_type_info()
             else:
                 # No matching overload found - error will be caught elsewhere
@@ -683,6 +694,130 @@ class TypeChecker:
             return None
         
         return recipe_symbol.type_info
+    
+    def _validate_builtin_recipe_call(self, node: RecipeCall):
+        """Validate built-in recipe calls with strict parameter constraints"""
+        
+        # sqrt: argument must be non-negative
+        if node.name == "sqrt" and len(node.args) > 0:
+            arg = node.args[0]
+            if isinstance(arg, Literal):
+                try:
+                    value = float(arg.value)
+                    if value < 0:
+                        self.error_handler.add_error(
+                            f"sqrt() requires non-negative argument, got {value}",
+                            arg,
+                            ErrorCodes.INVALID_OPERATION
+                        )
+                except (ValueError, TypeError):
+                    pass
+        
+        # fact: argument must be non-negative piece
+        elif node.name == "fact" and len(node.args) > 0:
+            arg = node.args[0]
+            if isinstance(arg, Literal):
+                try:
+                    value = int(arg.value)
+                    if value < 0:
+                        self.error_handler.add_error(
+                            f"fact() requires non-negative piece argument, got {value}",
+                            arg,
+                            ErrorCodes.INVALID_OPERATION
+                        )
+                except (ValueError, TypeError):
+                    pass
+        
+        # cut: both arguments must be non-negative
+        elif node.name == "cut" and len(node.args) == 2:
+            for i, arg in enumerate(node.args):
+                if isinstance(arg, Literal):
+                    try:
+                        value = float(arg.value)
+                        if value < 0:
+                            self.error_handler.add_error(
+                                f"cut() requires non-negative arguments, got {value} at position {i+1}",
+                                arg,
+                                ErrorCodes.INVALID_OPERATION
+                            )
+                    except (ValueError, TypeError):
+                        pass
+        
+        # copy: start and end indices must be non-negative
+        elif node.name == "copy" and len(node.args) == 3:
+            for i in [1, 2]:  # Check 2nd and 3rd arguments (indices)
+                arg = node.args[i]
+                if isinstance(arg, Literal):
+                    try:
+                        value = int(arg.value)
+                        if value < 0:
+                            param_name = "start" if i == 1 else "end"
+                            self.error_handler.add_error(
+                                f"copy() requires non-negative {param_name} index, got {value}",
+                                arg,
+                                ErrorCodes.INVALID_OPERATION
+                            )
+                    except (ValueError, TypeError):
+                        pass
+        
+        # sort: must be 1-dimensional array
+        elif node.name == "sort" and len(node.args) > 0:
+            arg_type = self._get_expression_type(node.args[0])
+            if arg_type and arg_type.dimensions != 1:
+                self.error_handler.add_error(
+                    f"sort() requires 1-dimensional array, got {arg_type.dimensions}-dimensional array",
+                    node.args[0],
+                    ErrorCodes.INVALID_OPERATION
+                )
+        
+        # remove: index must be non-negative and less than array size
+        elif node.name == "remove" and len(node.args) == 2:
+            index_arg = node.args[1]
+            array_arg = node.args[0]
+            
+            # Check if index is non-negative
+            if isinstance(index_arg, Literal):
+                try:
+                    index_value = int(index_arg.value)
+                    if index_value < 0:
+                        self.error_handler.add_error(
+                            f"remove() requires non-negative index, got {index_value}",
+                            index_arg,
+                            ErrorCodes.INVALID_OPERATION
+                        )
+                    else:
+                        # Check bounds if we can determine array size
+                        array_type = self._get_expression_type(array_arg)
+                        if array_type and array_type.array_sizes and len(array_type.array_sizes) > 0:
+                            array_size = array_type.array_sizes[0]
+                            if index_value >= array_size:
+                                self.error_handler.add_error(
+                                    f"remove() index {index_value} out of bounds (array size: {array_size})",
+                                    index_arg,
+                                    ErrorCodes.ARRAY_OUT_OF_BOUNDS
+                                )
+                except (ValueError, TypeError):
+                    pass
+        
+        # matches: both arguments must have same type and dimensions (any dimensions allowed)
+        elif node.name == "matches" and len(node.args) == 2:
+            arg1_type = self._get_expression_type(node.args[0])
+            arg2_type = self._get_expression_type(node.args[1])
+            
+            if arg1_type and arg2_type:
+                # Check if types match (base type and dimensions)
+                if arg1_type.base_type != arg2_type.base_type:
+                    self.error_handler.add_error(
+                        f"matches() requires both arguments to have same base type, got {arg1_type.base_type} and {arg2_type.base_type}",
+                        node,
+                        ErrorCodes.TYPE_MISMATCH
+                    )
+                elif arg1_type.dimensions != arg2_type.dimensions:
+                    self.error_handler.add_error(
+                        f"matches() requires both arguments to have same dimensions, got {arg1_type.dimensions}D and {arg2_type.dimensions}D",
+                        node,
+                        ErrorCodes.TYPE_MISMATCH
+                    )
     
     def _get_cast_type(self, node: CastExpr) -> TypeInfo:
         """Get type of cast expression"""
