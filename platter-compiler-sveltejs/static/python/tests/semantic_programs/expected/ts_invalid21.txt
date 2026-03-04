@@ -1,1 +1,2 @@
-[ERROR] [E101] Check condition must be flag type, got piece at line 5, column 11
+Semantic analysis failed with 1 error(s) and 0 warning(s)
+[ERROR] Type mismatch in binary operation: piece > flag

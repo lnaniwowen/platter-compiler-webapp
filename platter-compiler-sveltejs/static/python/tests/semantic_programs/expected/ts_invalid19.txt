@@ -1,2 +1,3 @@
-[WARNING] [W102] Unused ingredient 'x' at line 2, column 14
-[ERROR] [E107] Cannot divide by 0 at line 2, column 20
+Semantic analysis failed with 1 error(s) and 1 warning(s)
+[WARNING] Unused ingredient 'x'
+[ERROR] Cannot divide by 0
