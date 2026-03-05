@@ -191,16 +191,24 @@ class SymbolTableBuilder:
                 self._process_table_decl(decl)
     
     def _process_function_declarations(self, program: Program):
-        """Process function declarations"""
+        """Process function declarations in two passes:
+        Pass 1: Register all function signatures
+        Pass 2: Process function bodies
+        """
+        # Pass 1: Register all function signatures
         for recipe in program.recipe_decl:
-            self._process_recipe_decl(recipe)
+            self._register_recipe_signature(recipe)
+        
+        # Pass 2: Process function bodies
+        for recipe in program.recipe_decl:
+            self._process_recipe_body(recipe)
     
-    def _process_recipe_decl(self, node: RecipeDecl):
-        """Process a recipe declaration"""
+    def _register_recipe_signature(self, node: RecipeDecl):
+        """Register recipe signature without processing body (Pass 1)"""
         # Prevent user-defined recipes from shadowing built-ins
         if self.symbol_table.is_builtin_recipe(node.name):
             if self.symbol_table.error_handler:
-                self.symbol_table.error_handler.add_error(
+                self.error_handler.add_error(
                     f"Cannot redefine built-in recipe '{node.name}'", 
                     node,
                     ErrorCodes.REDEFINED_BUILTIN
@@ -216,26 +224,36 @@ class SymbolTableBuilder:
             serve_type,
             0,
             node,
-            self.symbol_table.current_scope
+            self.symbol_table.global_scope  # Always register recipes in global scope
         )
         
         # Compute default value for symbol table display
         recipe_symbol.compute_default_value(self.symbol_table.table_types)
         
-        if not self.symbol_table.current_scope.define(recipe_symbol):
+        if not self.symbol_table.global_scope.define(recipe_symbol):
             if self.symbol_table.error_handler:
                 self.symbol_table.error_handler.add_error(f"Recipe '{node.name}' already defined", node)
+    
+    def _process_recipe_body(self, node: RecipeDecl):
+        """Process recipe body and parameters (Pass 2)"""
+        # Skip if recipe was not registered (e.g., due to redefinition error)
+        recipe_symbol = self.symbol_table.lookup_symbol(node.name)
+        if not recipe_symbol:
             return
         
+        # Enter recipe scope
         self.symbol_table.enter_scope(f"recipe_{node.name}")
         self.symbol_table.current_function = recipe_symbol
         
+        # Process parameters
         for spice in node.params:
             self._process_param_decl(spice)
         
+        # Process body
         if node.body:
             self._process_platter(node.body)
         
+        # Exit recipe scope
         self.symbol_table.current_function = None
         self.symbol_table.exit_scope()
     

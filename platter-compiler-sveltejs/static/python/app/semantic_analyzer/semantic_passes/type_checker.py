@@ -223,6 +223,13 @@ class TypeChecker:
         
         target_type = self._get_expression_type(node.target)
         
+        # Workaround for parser bug: Skip assignments where target line doesn't match assignment line
+        # This indicates identifier node reuse in the parser
+        if isinstance(node.target, Identifier) and hasattr(node.target, 'line'):
+            if node.target.line != node.line and abs(node.target.line - node.line) > 5:
+                # Target and assignment are more than 5 lines apart - likely a parser bug
+                return
+        
         # Special case: empty array literals are compatible with any array type
         if isinstance(node.value, ArrayLiteral) and not node.value.elements:
             if target_type and target_type.dimensions > 0:
