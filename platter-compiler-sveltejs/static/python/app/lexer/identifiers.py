@@ -5,7 +5,6 @@ from app.lexer.protocol import LexerProtocol
 class LexerIdentifier(LexerProtocol):
     def s257(self):
         self.advance()
-        print(self.current)
         if self._match_delimiter(self.id_delim): return self.s258()
         if self.current in self.id_chars: return self.s259()
         return Token(Token.InvalidLexeme, self.get_lexeme(), self.start_line, self.start_col)
