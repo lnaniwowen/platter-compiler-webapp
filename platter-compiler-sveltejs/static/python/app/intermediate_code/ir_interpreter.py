@@ -163,7 +163,7 @@ class TACInterpreter:
                 "success": False,
                 "paused": True,
                 "error": p.message,
-                "output": "\n".join(self.output_lines),
+                "output": "".join(self.output_lines),
                 "stdin_consumed": self._stdin_idx,
                 "globals": {k: v for k, v in self.global_frame.vars.items()
                             if not k.startswith("t")},
@@ -173,14 +173,14 @@ class TACInterpreter:
                 "success": False,
                 "paused": False,
                 "error": str(e),
-                "output": "\n".join(self.output_lines),
+                "output": "".join(self.output_lines),
                 "stdin_consumed": self._stdin_idx,
             }
 
         return {
             "success": True,
             "paused": False,
-            "output": "\n".join(self.output_lines),
+            "output": "".join(self.output_lines),
             "stdin_consumed": self._stdin_idx,
             "globals": {k: v for k, v in self.global_frame.vars.items()
                         if not k.startswith("t")},  # hide temps
@@ -334,6 +334,20 @@ class TACInterpreter:
 
         return return_value
 
+    def _process_string_literal(self, text: str) -> str:
+        """Process escape sequences and remove quotes from string literals."""
+        # If text is a quoted string literal, remove quotes
+        if text.startswith('"') and text.endswith('"'):
+            text = text[1:-1]
+        
+        # Process escape sequences
+        text = text.replace('\\n', '\n')   # \n -> newline
+        text = text.replace('\\t', '\t')   # \t -> tab
+        text = text.replace('\\\\', '\\')  # \\ -> backslash
+        text = text.replace('\\"', '"')   # \" -> quote
+        
+        return text
+
     def _call_builtin(self, name: str, args: List[Any]) -> Any:
         fn = self.BUILTINS[name]
 
@@ -341,6 +355,8 @@ class TACInterpreter:
         if name == "bill":
             # bill(chars_value) → outputs text, serves ""
             text = str(args[0]) if args else ""
+            # Process escape sequences and remove quotes
+            text = self._process_string_literal(text)
             self.output_lines.append(text)
             return ""
 

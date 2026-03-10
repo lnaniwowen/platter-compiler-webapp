@@ -1535,6 +1535,15 @@ tokens
 					<span>Semantic</span>
 				</button>
 
+				<button class="pill run-btn" on:click={() => analyzeSemantic(true)} title="Run TAC and Interpreter (Ctrl+Enter)">
+					{#if theme === 'dark'}
+						<img class="icon" src={synSemLexIcon} alt="Run Icon" />
+					{:else}
+						<img class="icon" src={synSemLexIcon1} alt="Run Icon" />
+					{/if}
+					<span>Run</span>
+				</button>
+
 				<div class="spacer"></div>
 				<!-- replace icons based on theme -->
 				<button
