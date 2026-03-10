@@ -507,14 +507,18 @@ start() {
 			const line = error.line - 1; // CodeMirror uses 0-based line numbers
 			const col = error.col - 1; // CodeMirror uses 0-based columns
 			const valueLength = error.value?.length || 1;
-			const isWarning = (error as any).severity === 'warning';
+			// Determine CSS class based on severity
+			const cssClass = (error as any).severity === 'WARNING' ? 'warning-underline' : 'error-underline';
 			const marker = cmInstance.markText(
 				{ line, ch: col },
 				{ line, ch: col + valueLength },
-				{ className: isWarning ? 'warning-underline' : 'error-underline' }
+				{ 
+					className: cssClass,
+					title: (error as any).message || 'Error'
+				}
 			);
 			errorMarkers.push(marker);
-			console.log(`  [OK] Marker ${index + 1} added successfully`);
+			console.log(`  [OK] Marker ${index + 1} added successfully with ${cssClass}`);
 		});
 		console.log(`Total ${errorMarkers.length} error markers active in editor`);
 	}
@@ -678,23 +682,18 @@ try:
         print("SEMANTIC ERROR DETAILS WITH POSITIONS")
         print("="*80)
         
-        error_messages = []
-        warning_messages = []
-        
-        for err in error_handler.get_errors():
+        sorted_errors = sorted(error_handler.get_errors(), key=lambda e: 0 if getattr(e.severity, "name", "") == "ERROR" else 1)
+        for err in sorted_errors:
             error_list.append(str(err))
-            is_error = err.severity.name == "ERROR"
-            
-            if is_error:
-                error_messages.append(err.message)
-            else:
-                warning_messages.append(err.message)
+            # Format each error with position info
+            severity_label = "ERROR" if err.severity.name == "ERROR" else "WARNING"
+            position_info = f" at line {err.line}, column {err.column}" if err.line and err.column else ""
+            error_details.append(f"[{severity_label}] {err.message}{position_info}")
             
             # Log position info to console
-            severity_label = "ERROR" if is_error else "WARNING"
-            position_info = f"Line: {err.line}, Column: {err.column}" if err.line and err.column else "Position: Unknown"
+            position_log = f"Line: {err.line}, Column: {err.column}" if err.line and err.column else "Position: Unknown"
             print(f"{severity_label}: {err.message}")
-            print(f"  > {position_info}")
+            print(f"  > {position_log}")
             print(f"  > Error Code: {err.error_code or 'N/A'}")
             if err.node:
                 print(f"  > Node Type: {err.node.node_type}")
@@ -707,7 +706,7 @@ try:
                     "col": err.column,
                     "value": err.error_code or "semantic_error",
                     "message": err.message,
-                    "severity": "warning" if not is_error else "error"
+                    "severity": severity_label
                 })
                 print(f"  [OK] Error marker added for line {err.line}, col {err.column}")
             else:
@@ -717,15 +716,15 @@ try:
         print(f"Total error markers to send to frontend: {len(error_markers)}")
         print("="*80)
         
-        # Build terminal message: errors first, then warnings
-        error_count = len(error_messages)
-        detailed_message = f"Semantic analysis failed with {error_count} error(s)\\n\\n"
-        for msg in error_messages:
-            detailed_message += f"Semantic Error: {msg}\\n"
-        if warning_messages:
-            detailed_message += "\\n"
-            for msg in warning_messages:
-                detailed_message += f"Warning: {msg}\\n"
+        # Build detailed message with all errors (formal formatting)
+        error_count = error_handler.get_error_count()
+        warning_count = error_handler.get_warning_count()
+        if error_count > 0:
+            detailed_message = f"Semantic analysis failed with {error_count} error(s) and {warning_count} warning(s)\\n"
+        else:
+            detailed_message = f"No semantic errors with {warning_count} warning(s)\\n"
+        for detail in error_details:
+            detailed_message += f"{detail}\\n"
         
         result = {
             "success": False, 
@@ -909,8 +908,8 @@ result
 						// Add error markers if position info is available
 						if (parsedMarkers.length > 0) {
 						console.log('Processing error markers...');
-						const semanticTokens = parsedMarkers.map((marker: any) => {
-							console.log(`  Marker: Line ${marker.line}, Col ${marker.col}, Message: ${marker.message}`);
+						const semanticTokens = data.error_markers.map((marker: any) => {
+							console.log(`  Marker: Line ${marker.line}, Col ${marker.col}, Severity: ${marker.severity}, Message: ${marker.message}`);
 							return {
 								type: 'semantic_error',
 								value: marker.value,
@@ -2075,8 +2074,8 @@ tokens
 
 	/* Warning underline styling */
 	:global(.warning-underline) {
-		border-bottom: 2px solid #ff9800 !important;
-		background-color: rgba(255, 152, 0, 0.1) !important;
+		border-bottom: 2px solid #ffa500 !important;
+		background-color: rgba(255, 165, 0, 0.08) !important;
 	}
 
 	/* Platter Language Syntax Highlighting - TypeScript-inspired colors */

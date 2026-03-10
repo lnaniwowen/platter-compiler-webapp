@@ -280,12 +280,15 @@ def format_symbol_table_compact(symbol_table: SymbolTable, error_handler=None) -
     # Add error details if any
     if error_handler and error_handler.has_errors():
         errors = error_handler.get_errors()
+        # Sort errors by severity: ERROR first, then WARNING, then INFO
+        from app.semantic_analyzer.semantic_passes.error_handler import ErrorSeverity
+        sorted_errors = sorted(errors, key=lambda e: 0 if e.severity == ErrorSeverity.ERROR else (1 if e.severity == ErrorSeverity.WARNING else 2))
         output.append("")
         output.append("╔════════════════════════════════════════════════════════════════════════╗")
         output.append("║                         SEMANTIC ISSUES                                ║")
         output.append("╠════════════════════════════════════════════════════════════════════════╣")
         
-        for i, error in enumerate(errors, 1):
+        for i, error in enumerate(sorted_errors, 1):
             severity_icon = "❌" if error.severity == "error" else "⚠️"
             output.append(f"║ {severity_icon} [{error.severity.name.upper():<7}] {error.message:<55} ║")
         
@@ -480,8 +483,12 @@ def format_errors_only(error_handler) -> str:
     if not error_handler or not error_handler.has_errors():
         return "No errors or warnings"
     
+    # Sort errors by severity: ERROR first, then WARNING, then INFO
+    from app.semantic_analyzer.semantic_passes.error_handler import ErrorSeverity
+    sorted_errors = sorted(error_handler.get_errors(), key=lambda e: 0 if e.severity == ErrorSeverity.ERROR else (1 if e.severity == ErrorSeverity.WARNING else 2))
+    
     output = []
-    for error in error_handler.get_errors():
+    for error in sorted_errors:
         output.append(f"[{error.severity.name.upper()}] {error.message}")
     
     return "\n".join(output)

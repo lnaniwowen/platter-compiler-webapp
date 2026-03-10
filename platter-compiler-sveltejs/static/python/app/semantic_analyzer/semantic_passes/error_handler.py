@@ -112,8 +112,11 @@ class SemanticErrorHandler:
         if not self.errors:
             return "No errors"
         
+        # Sort errors by severity: ERROR first, then WARNING, then INFO
+        sorted_errors = sorted(self.errors, key=lambda e: 0 if e.severity == ErrorSeverity.ERROR else (1 if e.severity == ErrorSeverity.WARNING else 2))
+        
         lines = []
-        for error in self.errors:
+        for error in sorted_errors:
             if error.severity == ErrorSeverity.ERROR:
                 lines.append(str(error))
             elif error.severity == ErrorSeverity.WARNING and include_warnings:
@@ -188,7 +191,7 @@ class ErrorCodes:
     STOP_OUTSIDE_LOOP = "E401"  # break outside loop
     NEXT_OUTSIDE_LOOP = "E402"  # continue outside loop
     SERVE_OUTSIDE_RECIPE = "E403"  # return outside function
-    UNREACHABLE_CODE = "E404"  # unreachable code
+    UNREACHABLE_CODE = "W404"  # unreachable code (warning)
     
     # Usage warnings (W1XX)
     UNINITIALIZED_INGREDIENT = "W101"  # uninitialized variable

@@ -70,7 +70,19 @@ class TestSemanticAnalyzer(unittest.TestCase):
             symbol_table, error_handler = analyzer.analyze(ast)
 
             if error_handler.has_errors() or error_handler.has_warnings():
-                actual_output = error_handler.format_errors(include_warnings=True, include_info=False)
+                # Format output with prefix message like Svelte does
+                error_count = error_handler.get_error_count()
+                warning_count = error_handler.get_warning_count()
+                
+                # Different format for errors vs warnings only
+                if error_count > 0:
+                    prefix = f"Semantic analysis failed with {error_count} error(s) and {warning_count} warning(s)"
+                else:
+                    # Only warnings, no errors
+                    prefix = f"No semantic errors with {warning_count} warning(s)"
+                
+                error_details = error_handler.format_errors(include_warnings=True, include_info=False)
+                actual_output = f"{prefix}\n{error_details}"
             else:
                 actual_output = "No semantic errors"
 
@@ -101,8 +113,12 @@ class TestSemanticAnalyzer(unittest.TestCase):
                     continue
                 
                 # Read expected output
-                with open(expected_file, 'r', encoding='utf-8') as f:
-                    expected_output = f.read().strip()
+                try:
+                    with open(expected_file, 'r', encoding='utf-8') as f:
+                        expected_output = f.read().strip()
+                except UnicodeDecodeError:
+                    with open(expected_file, 'r', encoding='utf-16') as f:
+                        expected_output = f.read().strip()
                 
                 # Run semantic analysis
                 success, actual_output, error_msg = self.run_semantic_analysis(platter_file)
@@ -196,11 +212,11 @@ class TestSemanticAnalyzer(unittest.TestCase):
         print(f"SEMANTIC ANALYSIS TEST SUMMARY: {passed_count}/{total_tests} tests passed")
         print(f"{'='*70}")
         if failed_tests:
-            print(f"\n⚠ {len(failed_tests)} test(s) failed:")
+            print(f"\n[!] {len(failed_tests)} test(s) failed:")
             for result in failed_tests:
                 print(f"  - {result['file']} [{result['status']}]")
         else:
-            print("✓ All semantic analysis tests passed!")
+            print("[OK] All semantic analysis tests passed!")
         print(f"\nDetailed results written to: {results_file}")
 
 

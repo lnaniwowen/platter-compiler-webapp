@@ -154,7 +154,7 @@ class ASTParser:
             node_1 = self.global_decl()
 
             # Collect: [$0] + $1
-            result = [node_0] + node_1
+            result = (node_0 if isinstance(node_0, list) else [node_0]) + node_1
             return result
 
             """    7 <global_decl>	=>	id	<table_decl>	<global_decl>    """
@@ -684,7 +684,11 @@ class ASTParser:
             self.parse_token("id")
             node_1 = self.id_tail()
 
-            return Identifier(token_0.value, token_0.line, token_0.col)
+            # If id_tail returns accessor (e.g., :field or [index]), apply it
+            base_id = Identifier(token_0.value, token_0.line, token_0.col)
+            if node_1:
+                return node_1(base_id)
+            return base_id
 
             """    43 <piece_array_val>	=>	<ret_array>    """
         elif self.tokens[self.pos].type in PREDICT_SET["<piece_array_val>_1"]:
@@ -739,7 +743,11 @@ class ASTParser:
             self.parse_token("id")
             node_1 = self.id_tail()
 
-            return Identifier(token_0.value, token_0.line, token_0.col)
+            # If id_tail returns accessor (e.g., :field or [index]), apply it
+            base_id = Identifier(token_0.value, token_0.line, token_0.col)
+            if node_1:
+                return node_1(base_id)
+            return base_id
 
             """    48 <sip_array_val>	=>	<ret_array>    """
         elif self.tokens[self.pos].type in PREDICT_SET["<sip_array_val>_1"]:
@@ -794,7 +802,11 @@ class ASTParser:
             self.parse_token("id")
             node_1 = self.id_tail()
 
-            return Identifier(token_0.value, token_0.line, token_0.col)
+            # If id_tail returns accessor (e.g., :field or [index]), apply it
+            base_id = Identifier(token_0.value, token_0.line, token_0.col)
+            if node_1:
+                return node_1(base_id)
+            return base_id
 
             """    53 <chars_array_val>	=>	<ret_array>    """
         elif self.tokens[self.pos].type in PREDICT_SET["<chars_array_val>_1"]:
@@ -849,7 +861,11 @@ class ASTParser:
             self.parse_token("id")
             node_1 = self.id_tail()
 
-            return Identifier(token_0.value, token_0.line, token_0.col)
+            # If id_tail returns accessor (e.g., :field or [index]), apply it
+            base_id = Identifier(token_0.value, token_0.line, token_0.col)
+            if node_1:
+                return node_1(base_id)
+            return base_id
 
             """    58 <flag_array_val>	=>	<ret_array>    """
         elif self.tokens[self.pos].type in PREDICT_SET["<flag_array_val>_1"]:
@@ -904,7 +920,11 @@ class ASTParser:
             self.parse_token("id")
             node_1 = self.id_tail()
 
-            return Identifier(token_0.value, token_0.line, token_0.col)
+            # If id_tail returns accessor (e.g., :field or [index]), apply it
+            base_id = Identifier(token_0.value, token_0.line, token_0.col)
+            if node_1:
+                return node_1(base_id)
+            return base_id
 
             """    63 <table_array_val>	=>	<ret_array>    """
         elif self.tokens[self.pos].type in PREDICT_SET["<table_array_val>_1"]:
@@ -1131,7 +1151,7 @@ class ASTParser:
             node_1 = self.flavor_tail()
 
             # Collect: [$0] + $1
-            result = [node_0] + node_1
+            result = (node_0 if isinstance(node_0, list) else [node_0]) + node_1
             return result
 
             """    81 <flavor>	=>	    """
@@ -1723,7 +1743,7 @@ class ASTParser:
             node_1 = self.element_table_tail()
 
             # Collect: [$0] + $1
-            result = [node_0] + node_1
+            result = (node_0 if isinstance(node_0, list) else [node_0]) + node_1
             return result
         else: self.parse_token(self.error_arr)
 
@@ -2303,7 +2323,7 @@ class ASTParser:
             node_1 = self.spice_tail()
 
             # Collect: [$0] + $1
-            result = [node_0] + node_1
+            result = (node_0 if isinstance(node_0, list) else [node_0]) + node_1
             return result
 
             """    168 <spice>	=>	    """
@@ -2641,7 +2661,7 @@ class ASTParser:
             node_1 = self.statements()
 
             # Collect: [$0] + $1
-            result = [node_0] + node_1
+            result = (node_0 if isinstance(node_0, list) else [node_0]) + node_1
             return result
 
             """    194 <statements>	=>	<looping_st>	<statements>    """
@@ -2650,7 +2670,7 @@ class ASTParser:
             node_1 = self.statements()
 
             # Collect: [$0] + $1
-            result = [node_0] + node_1
+            result = (node_0 if isinstance(node_0, list) else [node_0]) + node_1
             return result
 
             """    195 <statements>	=>	<jump_serve>	<statements>    """
@@ -2659,7 +2679,7 @@ class ASTParser:
             node_1 = self.statements()
 
             # Collect: [$0] + $1
-            result = [node_0] + node_1
+            result = (node_0 if isinstance(node_0, list) else [node_0]) + node_1
             return result
 
             """    196 <statements>	=>	    """
@@ -3286,7 +3306,7 @@ class ASTParser:
             node_1 = self.statements_menu()
 
             # Collect: [$0] + $1
-            result = [node_0] + node_1
+            result = (node_0 if isinstance(node_0, list) else [node_0]) + node_1
             return result
 
             """    236 <statements_menu>	=>	<built_in_rec_call>	;	<statements_menu>    """
@@ -3306,7 +3326,7 @@ class ASTParser:
             node_1 = self.statements_menu()
 
             # Collect: [$0] + $1
-            result = [node_0] + node_1
+            result = (node_0 if isinstance(node_0, list) else [node_0]) + node_1
             return result
 
             """    238 <statements_menu>	=>	<looping_st>	<statements_menu>    """
@@ -3315,7 +3335,7 @@ class ASTParser:
             node_1 = self.statements_menu()
 
             # Collect: [$0] + $1
-            result = [node_0] + node_1
+            result = (node_0 if isinstance(node_0, list) else [node_0]) + node_1
             return result
 
             """    239 <statements_menu>	=>	<jump_stop>	<statements_menu>    """
@@ -3324,7 +3344,7 @@ class ASTParser:
             node_1 = self.statements_menu()
 
             # Collect: [$0] + $1
-            result = [node_0] + node_1
+            result = (node_0 if isinstance(node_0, list) else [node_0]) + node_1
             return result
 
             """    240 <statements_menu>	=>	<jump_serve>	<statements_menu>    """
@@ -3333,7 +3353,7 @@ class ASTParser:
             node_1 = self.statements_menu()
 
             # Collect: [$0] + $1
-            result = [node_0] + node_1
+            result = (node_0 if isinstance(node_0, list) else [node_0]) + node_1
             return result
 
             """    241 <statements_menu>	=>	    """
@@ -3354,10 +3374,13 @@ class ASTParser:
         if self.tokens[self.pos].type in PREDICT_SET["<id_statements_menu>"]:
             token_0 = self.tokens[self.pos]
             self.parse_token("id")
+            self._context_identifier = token_0.value
+            self._context_identifier_line = token_0.line
+            self._context_identifier_col = token_0.col
             node_1 = self.id_statements_ext()
             node_2 = self.statements_menu()
 
-            return node_1
+            return [node_1] + node_2
         else: self.parse_token(self.error_arr)
 
         log.info("Exit: " + self.tokens[self.pos].type)
@@ -3963,7 +3986,7 @@ class ASTParser:
             node_1 = self.statements_loop()
 
             # Collect: [$0] + $1
-            result = [node_0] + node_1
+            result = (node_0 if isinstance(node_0, list) else [node_0]) + node_1
             return result
 
             """    283 <statements_loop>	=>	<built_in_rec_call>	;	<statements_loop>    """
@@ -3983,7 +4006,7 @@ class ASTParser:
             node_1 = self.statements_loop()
 
             # Collect: [$0] + $1
-            result = [node_0] + node_1
+            result = (node_0 if isinstance(node_0, list) else [node_0]) + node_1
             return result
 
             """    285 <statements_loop>	=>	<looping_st>	<statements_loop>    """
@@ -3992,7 +4015,7 @@ class ASTParser:
             node_1 = self.statements_loop()
 
             # Collect: [$0] + $1
-            result = [node_0] + node_1
+            result = (node_0 if isinstance(node_0, list) else [node_0]) + node_1
             return result
 
             """    286 <statements_loop>	=>	<jump_st>	<statements_loop>    """
@@ -4001,7 +4024,7 @@ class ASTParser:
             node_1 = self.statements_loop()
 
             # Collect: [$0] + $1
-            result = [node_0] + node_1
+            result = (node_0 if isinstance(node_0, list) else [node_0]) + node_1
             return result
 
             """    287 <statements_loop>	=>	    """
@@ -4022,16 +4045,13 @@ class ASTParser:
         if self.tokens[self.pos].type in PREDICT_SET["<id_statements_loop>"]:
             token_0 = self.tokens[self.pos]
             self.parse_token("id")
-
-            # Set context for downstream assignment/call parsing
             self._context_identifier = token_0.value
             self._context_identifier_line = token_0.line
             self._context_identifier_col = token_0.col
-
             node_1 = self.id_statements_ext()
             node_2 = self.statements_loop()
 
-            return node_1
+            return [node_1] + node_2
         else: self.parse_token(self.error_arr)
 
         log.info("Exit: " + self.tokens[self.pos].type)
@@ -4246,7 +4266,7 @@ class ASTParser:
             node_1 = self.choice_usual_loop_st()
 
             # Collect: [$0] + $1
-            result = [node_0] + node_1
+            result = (node_0 if isinstance(node_0, list) else [node_0]) + node_1
             return result
 
             """    303 <choice_usual_loop_st>	=>	<built_in_rec_call>	;	<choice_usual_loop_st>    """
@@ -4266,7 +4286,7 @@ class ASTParser:
             node_1 = self.choice_usual_loop_st()
 
             # Collect: [$0] + $1
-            result = [node_0] + node_1
+            result = (node_0 if isinstance(node_0, list) else [node_0]) + node_1
             return result
 
             """    305 <choice_usual_loop_st>	=>	<looping_st>	<choice_usual_loop_st>    """
@@ -4275,7 +4295,7 @@ class ASTParser:
             node_1 = self.choice_usual_loop_st()
 
             # Collect: [$0] + $1
-            result = [node_0] + node_1
+            result = (node_0 if isinstance(node_0, list) else [node_0]) + node_1
             return result
 
             """    306 <choice_usual_loop_st>	=>	<jump_st>	<choice_usual_loop_st>    """
@@ -4284,7 +4304,7 @@ class ASTParser:
             node_1 = self.choice_usual_loop_st()
 
             # Collect: [$0] + $1
-            result = [node_0] + node_1
+            result = (node_0 if isinstance(node_0, list) else [node_0]) + node_1
             return result
 
             """    307 <choice_usual_loop_st>	=>	    """
@@ -4305,10 +4325,13 @@ class ASTParser:
         if self.tokens[self.pos].type in PREDICT_SET["<id_statements_choice_usual_loop>"]:
             token_0 = self.tokens[self.pos]
             self.parse_token("id")
+            self._context_identifier = token_0.value
+            self._context_identifier_line = token_0.line
+            self._context_identifier_col = token_0.col
             node_1 = self.id_statements_ext()
             node_2 = self.choice_usual_loop_st()
 
-            return node_1
+            return [node_1] + node_2
         else: self.parse_token(self.error_arr)
 
         log.info("Exit: " + self.tokens[self.pos].type)
@@ -5570,12 +5593,13 @@ class ASTParser:
 
         """    399 <cont_sip>	=>	<sip_ops>	<strict_sip_expr>    """
         if self.tokens[self.pos].type in PREDICT_SET["<cont_sip>"]:
+            op_token = self.tokens[self.pos]
             node_0 = self.sip_ops()
             node_1 = self.strict_sip_expr()
 
             # Build binary operation chain
             def build_op(left):
-                node = BinaryOp(left, node_0, node_1, None, None)
+                node = BinaryOp(left, node_0, node_1, op_token.line, op_token.col)
                 return node
             return build_op
 
@@ -5593,12 +5617,13 @@ class ASTParser:
 
         """    401 <cont_piece>	=>	<all_ops>	<strict_piece_expr>    """
         if self.tokens[self.pos].type in PREDICT_SET["<cont_piece>"]:
+            op_token = self.tokens[self.pos]
             node_0 = self.all_ops()
             node_1 = self.strict_piece_expr()
 
             # Build binary operation chain
             def build_op(left):
-                node = BinaryOp(left, node_0, node_1, None, None)
+                node = BinaryOp(left, node_0, node_1, op_token.line, op_token.col)
                 return node
             return build_op
 
@@ -5616,12 +5641,13 @@ class ASTParser:
 
         """    403 <cont_chars>	=>	<chars_ops>	<strict_chars_expr>    """
         if self.tokens[self.pos].type in PREDICT_SET["<cont_chars>"]:
+            op_token = self.tokens[self.pos]
             node_0 = self.chars_ops()
             node_1 = self.strict_chars_expr()
 
             # Build binary operation chain
             def build_op(left):
-                node = BinaryOp(left, node_0, node_1, None, None)
+                node = BinaryOp(left, node_0, node_1, op_token.line, op_token.col)
                 return node
             return build_op
 
@@ -5727,13 +5753,14 @@ class ASTParser:
         if self.tokens[self.pos].type in PREDICT_SET["<flag_operand>"]:
             node_0 = self.ret_piece()
             node_1 = self.cont_piece()
+            rel_op_token = self.tokens[self.pos]
             node_2 = self.rel_op()
             node_3 = self.strict_piece_expr()
             node_4 = self.flag_eq_tail()
 
             # Build binary operation: first apply arithmetic continuation, then relational op
             left = node_1(node_0) if node_1 else node_0
-            result = BinaryOp(left, node_2, node_3, None, None)
+            result = BinaryOp(left, node_2, node_3, rel_op_token.line, rel_op_token.col)
             if node_4:
                 return node_4(result)
             else:
@@ -5743,13 +5770,14 @@ class ASTParser:
         elif self.tokens[self.pos].type in PREDICT_SET["<flag_operand>_1"]:
             node_0 = self.ret_sip()
             node_1 = self.cont_sip()
+            rel_op_token = self.tokens[self.pos]
             node_2 = self.rel_op()
             node_3 = self.strict_sip_expr()
             node_4 = self.flag_eq_tail()
 
             # Build binary operation: first apply arithmetic continuation, then relational op
             left = node_1(node_0) if node_1 else node_0
-            result = BinaryOp(left, node_2, node_3, None, None)
+            result = BinaryOp(left, node_2, node_3, rel_op_token.line, rel_op_token.col)
             if node_4:
                 return node_4(result)
             else:
@@ -5770,13 +5798,14 @@ class ASTParser:
         elif self.tokens[self.pos].type in PREDICT_SET["<flag_operand>_3"]:
             node_0 = self.ret_chars()
             node_1 = self.cont_chars()
+            rel_op_token = self.tokens[self.pos]
             node_2 = self.rel_op()
             node_3 = self.strict_chars_expr()
             node_4 = self.flag_eq_tail()
 
             # Build binary operation: first apply arithmetic continuation, then relational op
             left = node_1(node_0) if node_1 else node_0
-            result = BinaryOp(left, node_2, node_3, None, None)
+            result = BinaryOp(left, node_2, node_3, rel_op_token.line, rel_op_token.col)
             if node_4:
                 return node_4(result)
             else:
@@ -5892,13 +5921,14 @@ class ASTParser:
 
             """    424 <flag_cont_any>	=>	<rel_op>	<any_expr>	<flag_eq_tail>    """
         elif self.tokens[self.pos].type in PREDICT_SET["<flag_cont_any>_5"]:
+            rel_op_token = self.tokens[self.pos]
             node_0 = self.rel_op()
             node_1 = self.any_expr()
             node_2 = self.flag_eq_tail()
 
             # Build binary operation chain
             def build_op(left):
-                node = BinaryOp(left, node_0, node_1, None, None)
+                node = BinaryOp(left, node_0, node_1, rel_op_token.line, rel_op_token.col)
                 if node_2:
                     return node_2(node)
                 return node
@@ -6060,13 +6090,14 @@ class ASTParser:
 
             """    436 <flag_cps_cont_any>	=>	<rel_op>	<strict_cps_expr>	<flag_eq_tail>    """
         elif self.tokens[self.pos].type in PREDICT_SET["<flag_cps_cont_any>_5"]:
+            rel_op_token = self.tokens[self.pos]
             node_0 = self.rel_op()
             node_1 = self.strict_cps_expr()
             node_2 = self.flag_eq_tail()
 
             # Build binary operation chain
             def build_op(left):
-                node = BinaryOp(left, node_0, node_1, None, None)
+                node = BinaryOp(left, node_0, node_1, rel_op_token.line, rel_op_token.col)
                 if node_2:
                     return node_2(node)
                 return node
@@ -6211,13 +6242,14 @@ class ASTParser:
 
             """    446 <flag_ps_cont_any>	=>	<rel_op>	<strict_ps_expr>	<flag_eq_tail>    """
         elif self.tokens[self.pos].type in PREDICT_SET["<flag_ps_cont_any>_5"]:
+            rel_op_token = self.tokens[self.pos]
             node_0 = self.rel_op()
             node_1 = self.strict_ps_expr()
             node_2 = self.flag_eq_tail()
 
             # Build binary operation chain
             def build_op(left):
-                node = BinaryOp(left, node_0, node_1, None, None)
+                node = BinaryOp(left, node_0, node_1, rel_op_token.line, rel_op_token.col)
                 if node_2:
                     return node_2(node)
                 return node
@@ -6404,13 +6436,14 @@ class ASTParser:
 
             """    459 <any_cont_any>	=>	<rel_op>	<any_expr>	<flag_op_tail>    """
         elif self.tokens[self.pos].type in PREDICT_SET["<any_cont_any>_5"]:
+            rel_op_token = self.tokens[self.pos]
             node_0 = self.rel_op()
             node_1 = self.any_expr()
             node_2 = self.flag_op_tail()
 
             # Build binary operation chain
             def build_op(left):
-                node = BinaryOp(left, node_0, node_1, None, None)
+                node = BinaryOp(left, node_0, node_1, rel_op_token.line, rel_op_token.col)
                 if node_2:
                     return node_2(node)
                 return node
@@ -6436,13 +6469,14 @@ class ASTParser:
 
         """    462 <any_cont_cps_flag_tail>	=>	<rel_op>	<strict_cps_expr>	<flag_op_tail>    """
         if self.tokens[self.pos].type in PREDICT_SET["<any_cont_cps_flag_tail>"]:
+            rel_op_token = self.tokens[self.pos]
             node_0 = self.rel_op()
             node_1 = self.strict_cps_expr()
             node_2 = self.flag_op_tail()
 
             # Build binary operation chain
             def build_op(left):
-                node = BinaryOp(left, node_0, node_1, None, None)
+                node = BinaryOp(left, node_0, node_1, rel_op_token.line, rel_op_token.col)
                 if node_2:
                     return node_2(node)
                 return node
@@ -6462,13 +6496,14 @@ class ASTParser:
 
         """    464 <any_cont_ps_flag_tail>	=>	<rel_op>	<strict_ps_expr>	<flag_op_tail>    """
         if self.tokens[self.pos].type in PREDICT_SET["<any_cont_ps_flag_tail>"]:
+            rel_op_token = self.tokens[self.pos]
             node_0 = self.rel_op()
             node_1 = self.strict_ps_expr()
             node_2 = self.flag_op_tail()
 
             # Build binary operation chain
             def build_op(left):
-                node = BinaryOp(left, node_0, node_1, None, None)
+                node = BinaryOp(left, node_0, node_1, rel_op_token.line, rel_op_token.col)
                 if node_2:
                     return node_2(node)
                 return node
@@ -6488,13 +6523,14 @@ class ASTParser:
 
         """    466 <any_cont_p_flag_tail>	=>	<rel_op>	<strict_piece_expr>	<flag_op_tail>    """
         if self.tokens[self.pos].type in PREDICT_SET["<any_cont_p_flag_tail>"]:
+            rel_op_token = self.tokens[self.pos]
             node_0 = self.rel_op()
             node_1 = self.strict_piece_expr()
             node_2 = self.flag_op_tail()
 
             # Build binary operation chain
             def build_op(left):
-                node = BinaryOp(left, node_0, node_1, None, None)
+                node = BinaryOp(left, node_0, node_1, rel_op_token.line, rel_op_token.col)
                 if node_2:
                     return node_2(node)
                 return node
@@ -6514,13 +6550,14 @@ class ASTParser:
 
         """    468 <any_cont_s_flag_tail>	=>	<rel_op>	<strict_sip_expr>	<flag_op_tail>    """
         if self.tokens[self.pos].type in PREDICT_SET["<any_cont_s_flag_tail>"]:
+            rel_op_token = self.tokens[self.pos]
             node_0 = self.rel_op()
             node_1 = self.strict_sip_expr()
             node_2 = self.flag_op_tail()
 
             # Build binary operation chain
             def build_op(left):
-                node = BinaryOp(left, node_0, node_1, None, None)
+                node = BinaryOp(left, node_0, node_1, rel_op_token.line, rel_op_token.col)
                 if node_2:
                     return node_2(node)
                 return node
@@ -6540,13 +6577,14 @@ class ASTParser:
 
         """    470 <any_cont_c_flag_tail>	=>	<rel_op>	<strict_chars_expr>	<flag_op_tail>    """
         if self.tokens[self.pos].type in PREDICT_SET["<any_cont_c_flag_tail>"]:
+            rel_op_token = self.tokens[self.pos]
             node_0 = self.rel_op()
             node_1 = self.strict_chars_expr()
             node_2 = self.flag_op_tail()
 
             # Build binary operation chain
             def build_op(left):
-                node = BinaryOp(left, node_0, node_1, None, None)
+                node = BinaryOp(left, node_0, node_1, rel_op_token.line, rel_op_token.col)
                 if node_2:
                     return node_2(node)
                 return node

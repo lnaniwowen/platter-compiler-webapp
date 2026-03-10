@@ -21,6 +21,9 @@ class ScopeChecker:
     
     def check(self, ast_root: Program):
         """Run scope checking pass"""
+        # First check for undeclared symbols found during symbol table building
+        self._check_undeclared_symbols()
+        
         # Check for undefined symbols in expressions
         for decl in ast_root.global_decl:
             if isinstance(decl, IngrDecl):
@@ -36,12 +39,44 @@ class ScopeChecker:
         
         # Check start_platter if present (navigate to its existing scope)
         if ast_root.start_platter:
-            if self.symbol_table.navigate_to_scope("start_platter_1"):
+            if self.symbol_table.navigate_to_scope("start_platter"):
                 self._check_platter(ast_root.start_platter)
                 self.symbol_table.exit_scope()
         
         # Check for unused ingredients (warnings)
         self._check_unused_symbols()
+    
+    def _check_undeclared_symbols(self):
+        """Check for symbols that were used before being declared (forward references)"""
+        for name, phantom_symbol in self.symbol_table.undeclared_symbols.items():
+            if not phantom_symbol.accessed_in_scopes:
+                continue
+            
+            # Check if this symbol exists in the symbol table by searching all scopes
+            # If it does, it means it was used before declaration (forward reference)
+            actual_symbol = self._find_symbol_in_any_scope(name)
+            if actual_symbol:
+                # Found a forward reference - symbol was used before declaration
+                first_access_scope = phantom_symbol.accessed_in_scopes[0]
+                self.error_handler.add_error(
+                    f"Undefined ingredient '{name}' in '{first_access_scope}' (used before declaration)",
+                    None,
+                    ErrorCodes.UNDEFINED_SYMBOL
+                )
+    
+    def _find_symbol_in_any_scope(self, name: str):
+        """Search for a symbol in any scope (including child scopes)"""
+        return self._search_scope_tree(self.symbol_table.global_scope, name)
+    
+    def _search_scope_tree(self, scope, name: str):
+        """Recursively search scope tree for a symbol"""
+        if name in scope.symbols:
+            return scope.symbols[name]
+        for child in scope.children:
+            result = self._search_scope_tree(child, name)
+            if result:
+                return result
+        return None
     
     def _check_var_decl(self, node: IngrDecl):
         """Check ingredient declaration"""
@@ -137,6 +172,8 @@ class ScopeChecker:
                 self._check_array_decl(decl)
             elif isinstance(decl, TableDecl):
                 self._check_table_decl(decl)
+            else:
+                self._check_statement(decl)
         
         # Check statements
         for stmt in node.statements:
@@ -174,8 +211,11 @@ class ScopeChecker:
             self._check_platter(node.body)
             self._check_expression(node.condition)
         elif isinstance(node, PassLoop):
+            # Check init, condition, and update expressions
+            # Note: In PassLoop, these should be in the loop's scope (unlike RepeatLoop where condition is outside)
+            # But the symbol table builder tracks them, so we just validate them here
             if node.init:
-                if isinstance(node.init, Assignment):
+                if isinstance(node.init, Assignment):  
                     self._check_expression(node.init.target)
                     self._check_expression(node.init.value)
             if node.condition:

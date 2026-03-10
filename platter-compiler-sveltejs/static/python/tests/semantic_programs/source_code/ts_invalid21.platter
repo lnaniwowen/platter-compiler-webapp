@@ -1,8 +1,6 @@
-start(){ 
-  piece of a = 4;
-  piece of f = 2;
+piece of x = 5, y = 3, z = 1;
 
-    check(f){
-      bill(tochars(a));
-  }
+start(){
+flag of r;
+r = (x > y > z);
 }
