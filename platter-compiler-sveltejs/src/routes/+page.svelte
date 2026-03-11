@@ -1936,6 +1936,11 @@ tokens
 	}
 	.tmsg {
 		white-space: pre-wrap;
+		font-family:
+			ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+		tab-size: 4;
+		-moz-tab-size: 4;
+		-o-tab-size: 4;
 	}
 
 	.right {
