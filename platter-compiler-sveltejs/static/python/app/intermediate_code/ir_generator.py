@@ -434,8 +434,8 @@ class IRGenerator:
         
         self.loop_stack.append((continue_label, end_label))
         
-        # Initialization
-        if node.init:
+        # Initialization — only emit if it's an actual assignment with a value
+        if node.init and isinstance(node.init, Assignment) and node.init.value is not None:
             self.visit_assignment(node.init)
         
         # Start label
