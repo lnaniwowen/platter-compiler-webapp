@@ -494,6 +494,9 @@ class IRGenerator:
         self.emit_tac(TACGoto(default_label))
         self.emit_quad("goto", None, None, default_label)
         
+        # Push switch context so stop (break) jumps to end_label
+        self.loop_stack.append((end_label, end_label))
+
         # Generate case bodies
         for i, case in enumerate(node.cases):
             self.emit_tac(TACLabel(case_labels[i]))
@@ -502,7 +505,9 @@ class IRGenerator:
             for stmt in case.statements:
                 self.visit_statement(stmt)
             
-            # Fall through to next case (unless break is encountered)
+            # Jump to end after each case (no fall-through)
+            self.emit_tac(TACGoto(end_label))
+            self.emit_quad("goto", None, None, end_label)
         
         # Default case
         if node.default:
@@ -511,7 +516,13 @@ class IRGenerator:
             
             for stmt in node.default:
                 self.visit_statement(stmt)
+            
+            # Jump to end after default
+            self.emit_tac(TACGoto(end_label))
+            self.emit_quad("goto", None, None, end_label)
         
+        self.loop_stack.pop()
+
         # End label
         self.emit_tac(TACLabel(end_label))
         self.emit_quad("label", end_label)
