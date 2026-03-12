@@ -568,7 +568,7 @@ class IRGenerator:
             return self.visit_array_access(node)
         elif isinstance(node, TableAccess):
             return self.visit_table_access(node)
-        elif isinstance(node, FunctionCall):
+        elif isinstance(node, FunctionCall) or isinstance(node, RecipeCall):
             return self.visit_function_call(node)
         elif isinstance(node, CastExpr):
             return self.visit_cast_expr(node)

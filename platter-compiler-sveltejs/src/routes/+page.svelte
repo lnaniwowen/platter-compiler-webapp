@@ -158,6 +158,9 @@ start() {
 	const lexerRows: Array<{ lexeme: string; token: string }> = [];
 	let tokens: Token[] = [];
 	let isAnalyzing = false;
+	
+	let isWaitingForInput = false;
+	let terminalInputText = '';
 
 	// Pyodide integration
 	let pyodide: any = null;
@@ -514,6 +517,81 @@ start() {
 	}
 	function clearTerminal() {
 		termMessages = [];
+		isWaitingForInput = false;
+		terminalInputText = '';
+	}
+
+	async function handleTerminalInput() {
+		if (!terminalInputText || !pyodideReady) return;
+		const input = terminalInputText;
+		terminalInputText = '';
+		isWaitingForInput = false;
+
+		try {
+			pyodide.globals.set('user_input', input);
+			const result = await pyodide.runPythonAsync(`
+import sys
+import json
+import traceback
+
+interpreter = getattr(sys.modules.get('__main__'), 'active_interpreter', None)
+if interpreter is None:
+    result = {"success": False, "error": "No active interpreter found"}
+else:
+    try:
+        interpreter.stdin_lines.append(user_input)
+        exec_result = interpreter.run()
+        
+        execution_output = exec_result.get("output", "")
+        execution_success = exec_result.get("success", False)
+        execution_error = exec_result.get("error", "")
+        execution_paused = exec_result.get("paused", False)
+        execution_globals = exec_result.get("globals", {})
+        
+        result = {
+            "success": True,
+            "execution_output": execution_output,
+            "execution_success": execution_success,
+            "execution_error": execution_error,
+            "execution_paused": execution_paused,
+            "execution_globals": json.dumps(execution_globals)
+        }
+    except Exception as e:
+        result = {"success": False, "error": str(e), "traceback": traceback.format_exc()}
+result
+			`);
+
+			const data = result.toJs({ dict_converter: Object.fromEntries });
+
+			if (data.success) {
+				const successMsgs = [];
+				if (data.execution_output) {
+					const lines = data.execution_output.split('\\n');
+					for (let i = 0; i < lines.length; i++) {
+						if (i === lines.length - 1 && lines[i] === '') continue;
+						successMsgs.push({ text: lines[i] });
+					}
+				}
+				if (data.execution_success) {
+					isWaitingForInput = false;
+				} else if (data.execution_paused) {
+					isWaitingForInput = true;
+				} else if (data.execution_error) {
+					successMsgs.push({ icon: errorIcon, text: `Runtime Error: ${data.execution_error}` });
+					isWaitingForInput = false;
+				}
+				termMessages = successMsgs;
+			} else {
+				termMessages.push({ icon: errorIcon, text: `Interpreter Error: ${data.error}` });
+				termMessages = [...termMessages];
+				isWaitingForInput = false;
+			}
+		} catch (e) {
+			const errMsg = e instanceof Error ? e.message : String(e);
+			termMessages.push({ icon: errorIcon, text: `Frontend Error: ${errMsg}` });
+			termMessages = [...termMessages];
+			isWaitingForInput = false;
+		}
 	}
 
 	function clearErrorMarkers() {
@@ -699,9 +777,62 @@ try:
     execution_success = False
     execution_error = ""
     execution_globals = {}
+    execution_paused = False
     if run_ir_pipeline:
-        try: ir_gen = __import__('app.intermediate_code.ir_generator', fromlist=['IRGenerator']).IRGenerator(); tac_instructions, quad_table = ir_gen.generate(ast); formatter = __import__('app.intermediate_code.output_formatter', fromlist=['IRFormatter']).IRFormatter(); ir_tac_text = formatter.format_tac_text(tac_instructions); ir_quads_text = formatter.format_quadruples_text(quad_table); print(""); print("="*80); print("Intermediate Code (Three Address Code)"); print("="*80); print(ir_tac_text); print(""); print("="*80); print("Intermediate Code (Quadruples)"); print("="*80); print(ir_quads_text); optimizer_module = __import__('app.intermediate_code.optimizer_manager', fromlist=['OptimizerManager', 'OptimizationLevel']); OptimizerManager = optimizer_module.OptimizerManager; OptimizationLevel = optimizer_module.OptimizationLevel; optimizer = OptimizerManager(OptimizationLevel.STANDARD); optimized_tac = optimizer.optimize_tac(tac_instructions); ir_tac_optimized_text = formatter.format_tac_text(optimized_tac); print(""); print("="*80); print("Optimized IR (Three Address Code - Standard Level)"); print("="*80); print(ir_tac_optimized_text); print(""); print("="*80); print("Program Execution (IR Interpreter)"); print("="*80); run_tac = __import__('app.intermediate_code.ir_interpreter', fromlist=['run_tac']).run_tac; exec_result = run_tac(optimized_tac); execution_output = exec_result.get("output", ""); execution_success = exec_result.get("success", False); execution_error = exec_result.get("error", ""); execution_globals = exec_result.get("globals", {}); print("[Execution OK]" if execution_success else f"[Execution Error] {execution_error}"); print(execution_output if execution_success and execution_output else "(no output)" if execution_success else "")
-        except Exception as ir_err: import traceback; print(f"IR generation error: {str(ir_err)}"); traceback.print_exc(); execution_output = ""; execution_success = False; execution_error = str(ir_err); execution_globals = {}
+        try:
+            ir_gen = __import__('app.intermediate_code.ir_generator', fromlist=['IRGenerator']).IRGenerator()
+            tac_instructions, quad_table = ir_gen.generate(ast)
+            formatter = __import__('app.intermediate_code.output_formatter', fromlist=['IRFormatter']).IRFormatter()
+            ir_tac_text = formatter.format_tac_text(tac_instructions)
+            ir_quads_text = formatter.format_quadruples_text(quad_table)
+            print("")
+            print("="*80)
+            print("Intermediate Code (Three Address Code)")
+            print("="*80)
+            print(ir_tac_text)
+            print("")
+            print("="*80)
+            print("Intermediate Code (Quadruples)")
+            print("="*80)
+            print(ir_quads_text)
+            optimizer_module = __import__('app.intermediate_code.optimizer_manager', fromlist=['OptimizerManager', 'OptimizationLevel'])
+            OptimizerManager = optimizer_module.OptimizerManager
+            OptimizationLevel = optimizer_module.OptimizationLevel
+            optimizer = OptimizerManager(OptimizationLevel.STANDARD)
+            optimized_tac = optimizer.optimize_tac(tac_instructions)
+            ir_tac_optimized_text = formatter.format_tac_text(optimized_tac)
+            print("")
+            print("="*80)
+            print("Optimized IR (Three Address Code - Standard Level)")
+            print("="*80)
+            print(ir_tac_optimized_text)
+            print("")
+            print("="*80)
+            print("Program Execution (IR Interpreter)")
+            print("="*80)
+            
+            interpreter_module = __import__('app.intermediate_code.ir_interpreter', fromlist=['TACInterpreter'])
+            TACInterpreter = interpreter_module.TACInterpreter
+            interpreter = TACInterpreter(optimized_tac)
+            import sys
+            sys.modules['__main__'].active_interpreter = interpreter
+            exec_result = interpreter.run()
+            
+            execution_output = exec_result.get("output", "")
+            execution_success = exec_result.get("success", False)
+            execution_error = exec_result.get("error", "")
+            execution_paused = exec_result.get("paused", False)
+            execution_globals = exec_result.get("globals", {})
+            print("[Execution OK]" if execution_success else "[Execution Paused]" if execution_paused else f"[Execution Error] {execution_error}")
+            print(execution_output if execution_output else "(no output)")
+        except Exception as ir_err:
+            import traceback
+            print(f"IR generation error: {str(ir_err)}")
+            traceback.print_exc()
+            execution_output = ""
+            execution_success = False
+            execution_error = str(ir_err)
+            execution_globals = {}
     else:
         print("")
         print("="*80)
@@ -780,6 +911,7 @@ try:
             "execution_output": execution_output,
             "execution_success": execution_success,
             "execution_error": execution_error,
+            "execution_paused": execution_paused,
             "execution_globals": json.dumps(execution_globals),
             "errors": error_list,
             "semantic_errors": json.dumps(error_messages),
@@ -815,6 +947,7 @@ try:
             "execution_output": execution_output,
             "execution_success": execution_success,
             "execution_error": execution_error,
+            "execution_paused": execution_paused,
             "execution_globals": json.dumps(execution_globals),
             "semantic_warnings": json.dumps(warning_messages_success),
             "error_markers": json.dumps(warning_markers_success)
@@ -843,17 +976,23 @@ result
 					const warningMarkers = data.error_markers ? JSON.parse(data.error_markers) : [];
 					if (warningMarkers.length > 0) addErrorMarkers(warningMarkers);
 					const successMsgs: TermMsg[] = [];
-
 					if (runTacInterpreter) {
 						// Ctrl+Enter: show runtime-only messages and no check icon.
-						if (data.execution_success) {
-							if (data.execution_output) {
-								for (const line of data.execution_output.split('\n')) {
-									successMsgs.push({ text: line });
-								}
+						if (data.execution_output) {
+							const lines = data.execution_output.split('\n');
+							for (let i = 0; i < lines.length; i++) {
+								if (i === lines.length - 1 && lines[i] === '') continue;
+								successMsgs.push({ text: lines[i] });
 							}
+						}
+						
+						if (data.execution_success) {
+							isWaitingForInput = false;
+						} else if (data.execution_paused) {
+							isWaitingForInput = true;
 						} else if (data.execution_error) {
 							successMsgs.push({ icon: errorIcon, text: `Runtime Error: ${data.execution_error}` });
+							isWaitingForInput = false;
 						}
 					} else {
 						successMsgs.push({ icon: check, text: data.message || 'No semantic errors' });
@@ -1616,6 +1755,19 @@ tokens
 							<span class="tmsg">{e.text}</span>
 						</div>
 					{/each}
+					{#if isWaitingForInput}
+						<div class="trow input-row">
+							<span class="tmsg prompt-caret">&gt; </span>
+							<!-- svelte-ignore a11y-autofocus -->
+							<input 
+								type="text" 
+								class="terminal-input" 
+								bind:value={terminalInputText}
+								on:keydown={(e) => { if (e.key === 'Enter') handleTerminalInput() }}
+								autofocus
+							/>
+						</div>
+					{/if}
 				</div>
 			</div>
 		</section>
@@ -2245,5 +2397,31 @@ tokens
 	:global(.ide[data-theme='light'] .CodeMirror .cm-comment) {
 		color: #666666 !important;
 		font-style: italic !important;
+	}
+
+	.input-row {
+		display: flex;
+		align-items: center;
+		padding-left: 0px;
+	}
+	.prompt-caret {
+		margin-right: 8px;
+		color: #e6e6e6;
+		font-weight: bold;
+	}
+	.ide[data-theme='light'] .prompt-caret {
+		color: #1a1a1a;
+	}
+	.terminal-input {
+		background: transparent;
+		border: none;
+		color: #5af5b9;
+		font-family: inherit;
+		font-size: inherit;
+		outline: none;
+		flex-grow: 1;
+	}
+	.ide[data-theme='light'] .terminal-input {
+		color: #07603f;
 	}
 </style>
