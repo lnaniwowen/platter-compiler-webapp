@@ -534,7 +534,10 @@ class TACInterpreter:
             "+":   lambda a, b: a + b,
             "-":   lambda a, b: a - b,
             "*":   lambda a, b: a * b,
-            "/":   lambda a, b: a / b,
+            # piece/piece → integer division (truncate toward zero, C-style)
+            "/":   lambda a, b: int(a / b) if (isinstance(a, int) and not isinstance(a, bool)
+                                               and isinstance(b, int) and not isinstance(b, bool))
+                                           else a / b,
             "%":   lambda a, b: a % b,
             "==":  lambda a, b: a == b,
             "!=":  lambda a, b: a != b,
