@@ -62,8 +62,8 @@ class TACInterpreter:
     # Semantics follow the Platter Documentation specification exactly.
     BUILTINS: Dict[str, Any] = {
         # Type conversions
-        "topiece": lambda args: int(float(args[0])) if args else 0,
-        "tosip":   lambda args: float(args[0]) if args else 0.0,
+        "topiece": None,  # handled in _call_builtin
+        "tosip":   None,  # handled in _call_builtin
         "tochars": lambda args: ("up" if args[0] is True else ("down" if args[0] is False else str(args[0]))) if args else "",
 
         # Math, Formatting, Random
@@ -160,11 +160,19 @@ class TACInterpreter:
                 "globals": {k: v for k, v in self.global_frame.vars.items()
                             if not k.startswith("t")},
             }
+        except (ValueError, TypeError) as e:
+            return {
+                "success": False,
+                "paused": False,
+                "error": self._translate_error(str(e)),
+                "output": "".join(self.output_lines),
+                "stdin_consumed": self._stdin_idx,
+            }
         except InterpreterError as e:
             return {
                 "success": False,
                 "paused": False,
-                "error": str(e),
+                "error": self._translate_error(str(e)),
                 "output": "".join(self.output_lines),
                 "stdin_consumed": self._stdin_idx,
             }
@@ -334,8 +342,29 @@ class TACInterpreter:
     def _call_builtin(self, name: str, args: List[Any]) -> Any:
         fn = self.BUILTINS[name]
 
+        # ── Type conversions ─────────────────────────────────────────────
+        if name == "topiece":
+            if not args:
+                return 0
+            try:
+                return int(float(args[0]))
+            except (ValueError, TypeError):
+                raise InterpreterError(
+                    f"topiece(): cannot convert {self._platter_type(args[0])} value '{args[0]}' to piece"
+                )
+
+        elif name == "tosip":
+            if not args:
+                return 0.0
+            try:
+                return float(args[0])
+            except (ValueError, TypeError):
+                raise InterpreterError(
+                    f"tosip(): cannot convert {self._platter_type(args[0])} value '{args[0]}' to sip"
+                )
+
         # ── I/O ──────────────────────────────────────────────────────────
-        if name == "bill":
+        elif name == "bill":
             # bill(chars_value) → outputs text, serves ""
             text = str(args[0]) if args else ""
             # Process escape sequences and remove quotes
@@ -421,6 +450,46 @@ class TACInterpreter:
             if fn is None:
                 raise InterpreterError(f"Built-in '{name}' has no implementation")
             return fn(args)
+
+    # ── Type name helpers ──────────────────────────────────────────────────────
+
+    @staticmethod
+    def _platter_type(val: Any) -> str:
+        """Return the Platter type name for a Python value."""
+        if isinstance(val, bool):
+            return "flag"
+        if isinstance(val, int):
+            return "piece"
+        if isinstance(val, float):
+            return "sip"
+        if isinstance(val, str):
+            return "chars"
+        if isinstance(val, list):
+            return "array"
+        if isinstance(val, dict):
+            return "table"
+        return type(val).__name__
+
+    @staticmethod
+    def _translate_error(msg: str) -> str:
+        """Replace Python type names with Platter equivalents in error messages."""
+        msg = msg.replace("could not convert string to float", "cannot convert chars to sip")
+        msg = msg.replace("could not convert string to int", "cannot convert chars to piece")
+        msg = msg.replace("invalid literal for int", "invalid piece value")
+        msg = msg.replace(" float ", " sip ")
+        msg = msg.replace(" float'", " sip'")
+        msg = msg.replace("'float'", "'sip'")
+        msg = msg.replace(" int ", " piece ")
+        msg = msg.replace(" int'", " piece'")
+        msg = msg.replace("'int'", "'piece'")
+        msg = msg.replace(" str ", " chars ")
+        msg = msg.replace(" str'", " chars'")
+        msg = msg.replace("'str'", "'chars'")
+        msg = msg.replace(" bool ", " flag ")
+        msg = msg.replace(" bool'", " flag'")
+        msg = msg.replace("'bool'", "'flag'")
+        msg = msg.replace("string", "chars")
+        return msg
 
     # ── Variable load / store ──────────────────────────────────────────────────
 
