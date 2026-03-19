@@ -1,0 +1,21 @@
+prepare flag of isBinary(chars of binary) {
+        piece of i = 1;
+    repeat(up) {
+            chars of char = copy(binary, i, i);
+        
+        check (char == "") {
+                serve up;
+        }
+        alt (char != 1 and char != 0) { # Here char != 1
+            serve down;
+        }
+        i += 1;
+    }
+    bill("Exiting");
+    serve down;
+    
+}
+
+start() {
+    bill(tochars(isBinary("11")));
+}
