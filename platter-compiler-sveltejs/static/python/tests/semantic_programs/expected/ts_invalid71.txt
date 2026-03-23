@@ -1,0 +1,3 @@
+Semantic analysis failed with 2 error(s) and 0 warning(s)
+[ERROR] [E105] Type mismatch in binary operation: chars != piece at line 9, column 19
+[ERROR] [E105] Type mismatch in binary operation: chars != piece at line 9, column 33

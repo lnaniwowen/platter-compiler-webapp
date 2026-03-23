@@ -17,6 +17,25 @@ class TypeChecker:
     def __init__(self, symbol_table: SymbolTable, error_handler: SemanticErrorHandler):
         self.symbol_table = symbol_table
         self.error_handler = error_handler
+        # Track scope counters to match symbol table builder naming.
+        self.scope_type_counters: dict[str, int] = {
+            'check': 0, 'alt': 0, 'instead': 0,
+            'pass': 0, 'repeat': 0, 'order_repeat': 0,
+            'menu': 0, 'choice': 0, 'usual': 0,
+            'block': 0
+        }
+
+    def _navigate_and_check_scope(self, scope_type: str, check_func, *args):
+        """Navigate into a named scope, execute a check function, then exit."""
+        self.scope_type_counters[scope_type] += 1
+        scope_name = f"{scope_type}_{self.scope_type_counters[scope_type]}"
+
+        if self.symbol_table.navigate_to_scope(scope_name):
+            check_func(*args)
+            self.symbol_table.exit_scope()
+        else:
+            # Keep checking even if scope names drift to avoid silently skipping checks.
+            check_func(*args)
     
     def check(self, ast_root: Program):
         """Run type checking pass"""
@@ -204,7 +223,7 @@ class TypeChecker:
         elif isinstance(node, PassLoop):
             self._check_pass_loop(node)
         elif isinstance(node, Platter):
-            self._check_platter(node)
+            self._navigate_and_check_scope('block', self._check_platter, node)
         elif isinstance(node, ExpressionStatement):
             self._get_expression_type(node.expr)
     
@@ -346,13 +365,13 @@ class TypeChecker:
                 ErrorCodes.TYPE_MISMATCH
             )
         
-        # Check branches
-        self._check_platter(node.then_block)
+        # Check branches in their corresponding scopes.
+        self._navigate_and_check_scope('check', self._check_platter, node.then_block)
         for alt_cond, alt_block in node.elif_clauses:
             self._get_expression_type(alt_cond)
-            self._check_platter(alt_block)
+            self._navigate_and_check_scope('alt', self._check_platter, alt_block)
         if node.else_block:
-            self._check_platter(node.else_block)
+            self._navigate_and_check_scope('instead', self._check_platter, node.else_block)
     
     def _check_menu_statement(self, node: MenuStatement):
         """Check menu statement (menu/choice/usual)"""
@@ -386,13 +405,19 @@ class TypeChecker:
                     seen_values.append(value_str)
             
             # Check choice statements
-            for stmt in case.statements:
-                self._check_statement(stmt)
+            def check_choice_stmts():
+                for stmt in case.statements:
+                    self._check_statement(stmt)
+
+            self._navigate_and_check_scope('choice', check_choice_stmts)
         
         # Check usual case
         if node.default:
-            for stmt in node.default:
-                self._check_statement(stmt)
+            def check_usual_stmts():
+                for stmt in node.default:
+                    self._check_statement(stmt)
+
+            self._navigate_and_check_scope('usual', check_usual_stmts)
     
     def _check_repeat_loop(self, node: RepeatLoop):
         """Check repeat loop"""
@@ -403,25 +428,12 @@ class TypeChecker:
                 node.condition,
                 ErrorCodes.TYPE_MISMATCH
             )
-        self._check_platter(node.body)
+        self._navigate_and_check_scope('repeat', self._check_platter, node.body)
     
     def _check_order_repeat_loop(self, node: OrderRepeatLoop):
         """Check order-repeat loop"""
-        self._check_platter(node.body)
-        cond_type = self._get_expression_type(node.condition)
-        if cond_type and cond_type.base_type != "flag":
-            self.error_handler.add_error(
-                f"Loop condition must be flag type, got {cond_type}",
-                node.condition,
-                ErrorCodes.TYPE_MISMATCH
-            )
-    
-    def _check_pass_loop(self, node: PassLoop):
-        """Check pass loop"""
-        if node.init:
-            if isinstance(node.init, Assignment):
-                self._check_assignment(node.init)
-        if node.condition:
+        def check_order_repeat_loop_scope():
+            self._check_platter(node.body)
             cond_type = self._get_expression_type(node.condition)
             if cond_type and cond_type.base_type != "flag":
                 self.error_handler.add_error(
@@ -429,10 +441,27 @@ class TypeChecker:
                     node.condition,
                     ErrorCodes.TYPE_MISMATCH
                 )
-        if node.update:
-            if isinstance(node.update, Assignment):
+
+        self._navigate_and_check_scope('order_repeat', check_order_repeat_loop_scope)
+    
+    def _check_pass_loop(self, node: PassLoop):
+        """Check pass loop"""
+        def check_pass_loop_scope():
+            if node.init and isinstance(node.init, Assignment):
+                self._check_assignment(node.init)
+            if node.condition:
+                cond_type = self._get_expression_type(node.condition)
+                if cond_type and cond_type.base_type != "flag":
+                    self.error_handler.add_error(
+                        f"Loop condition must be flag type, got {cond_type}",
+                        node.condition,
+                        ErrorCodes.TYPE_MISMATCH
+                    )
+            if node.update and isinstance(node.update, Assignment):
                 self._check_assignment(node.update)
-        self._check_platter(node.body)
+            self._check_platter(node.body)
+
+        self._navigate_and_check_scope('pass', check_pass_loop_scope)
     
     def _get_expression_type(self, expr: ASTNode, expected_type: Optional[TypeInfo] = None) -> Optional[TypeInfo]:
         """Get the type of an expression

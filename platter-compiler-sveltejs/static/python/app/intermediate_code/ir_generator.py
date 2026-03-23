@@ -145,7 +145,18 @@ class IRGenerator:
             value_temp = self.visit_expression(node.init_value)
             self.emit_tac(TACAssignment(node.identifier, value_temp))
             self.emit_quad("=", value_temp, None, node.identifier)
-        # Note: Simple declarations without init don't generate code
+        else:
+            # Uninitialized ingredients get default values based on data type
+            defaults = {
+                "piece": "0",
+                "sip": "0.0",
+                "chars": '""',
+                "flag": "down"
+            }
+            # Fallback to "0" if type unknown, though it should be one of the above
+            default_val = defaults.get(node.data_type, "0")
+            self.emit_tac(TACAssignment(node.identifier, default_val))
+            self.emit_quad("=", default_val, None, node.identifier)
     
     def visit_array_decl(self, node: ArrayDecl):
         """Generate IR for array declaration"""
@@ -423,8 +434,8 @@ class IRGenerator:
         
         self.loop_stack.append((continue_label, end_label))
         
-        # Initialization
-        if node.init:
+        # Initialization — only emit if it's an actual assignment with a value
+        if node.init and isinstance(node.init, Assignment) and node.init.value is not None:
             self.visit_assignment(node.init)
         
         # Start label
@@ -483,6 +494,9 @@ class IRGenerator:
         self.emit_tac(TACGoto(default_label))
         self.emit_quad("goto", None, None, default_label)
         
+        # Push switch context so stop (break) jumps to end_label
+        self.loop_stack.append((end_label, end_label))
+
         # Generate case bodies
         for i, case in enumerate(node.cases):
             self.emit_tac(TACLabel(case_labels[i]))
@@ -491,7 +505,9 @@ class IRGenerator:
             for stmt in case.statements:
                 self.visit_statement(stmt)
             
-            # Fall through to next case (unless break is encountered)
+            # Jump to end after each case (no fall-through)
+            self.emit_tac(TACGoto(end_label))
+            self.emit_quad("goto", None, None, end_label)
         
         # Default case
         if node.default:
@@ -500,7 +516,13 @@ class IRGenerator:
             
             for stmt in node.default:
                 self.visit_statement(stmt)
+            
+            # Jump to end after default
+            self.emit_tac(TACGoto(end_label))
+            self.emit_quad("goto", None, None, end_label)
         
+        self.loop_stack.pop()
+
         # End label
         self.emit_tac(TACLabel(end_label))
         self.emit_quad("label", end_label)
@@ -563,12 +585,18 @@ class IRGenerator:
         elif isinstance(node, Identifier):
             return node.name
         elif isinstance(node, Literal):
+            if node.value_type == "chars":
+                # Ensure string literals are quoted so TAC interpreter does not mistake an empty string for a variable lookup
+                val = str(node.value)
+                if not (val.startswith('"') and val.endswith('"')) and not (val.startswith("'") and val.endswith("'")):
+                    return f'"{val}"'
+                return val
             return str(node.value)
         elif isinstance(node, ArrayAccess):
             return self.visit_array_access(node)
         elif isinstance(node, TableAccess):
             return self.visit_table_access(node)
-        elif isinstance(node, FunctionCall):
+        elif isinstance(node, FunctionCall) or isinstance(node, RecipeCall):
             return self.visit_function_call(node)
         elif isinstance(node, CastExpr):
             return self.visit_cast_expr(node)

@@ -20,12 +20,6 @@ class InterpreterError(Exception):
     pass
 
 
-class ReturnSignal(Exception):
-    """Used to unwind the call stack on return."""
-    def __init__(self, value=None):
-        self.value = value
-
-
 class InputPauseSignal(Exception):
     """Raised when take() needs more user input than currently provided."""
     def __init__(self, message: str):
@@ -68,9 +62,9 @@ class TACInterpreter:
     # Semantics follow the Platter Documentation specification exactly.
     BUILTINS: Dict[str, Any] = {
         # Type conversions
-        "topiece": lambda args: int(float(args[0])) if args else 0,
-        "tosip":   lambda args: float(args[0]) if args else 0.0,
-        "tochars": lambda args: str(args[0]) if args else "",
+        "topiece": None,  # handled in _call_builtin
+        "tosip":   None,  # handled in _call_builtin
+        "tochars": lambda args: ("up" if args[0] is True else ("down" if args[0] is False else str(args[0]))) if args else "",
 
         # Math, Formatting, Random
         "pow":     lambda args: args[0] ** args[1],                        # pow(base, exp) → piece
@@ -150,15 +144,13 @@ class TACInterpreter:
         and executed inline.  Recipe calls go through _call_function as normal.
         Returns a summary dict with output, final global vars, and status.
         """
-        if "start" not in self.func_map:
+        if self.pc == 0 and "start" not in self.func_map:
             raise InterpreterError("No 'start' function found in IR.")
 
-        self.pc = 0
         try:
             self._execute()
-        except ReturnSignal:
-            pass
         except InputPauseSignal as p:
+            self.pc -= 1
             return {
                 "success": False,
                 "paused": True,
@@ -168,11 +160,19 @@ class TACInterpreter:
                 "globals": {k: v for k, v in self.global_frame.vars.items()
                             if not k.startswith("t")},
             }
+        except (ValueError, TypeError) as e:
+            return {
+                "success": False,
+                "paused": False,
+                "error": self._translate_error(str(e)),
+                "output": "".join(self.output_lines),
+                "stdin_consumed": self._stdin_idx,
+            }
         except InterpreterError as e:
             return {
                 "success": False,
                 "paused": False,
-                "error": str(e),
+                "error": self._translate_error(str(e)),
                 "output": "".join(self.output_lines),
                 "stdin_consumed": self._stdin_idx,
             }
@@ -273,9 +273,30 @@ class TACInterpreter:
             args = self.param_stack[-instr.num_params:] if instr.num_params else []
             self.param_stack = self.param_stack[:-instr.num_params] if instr.num_params else self.param_stack
 
-            result = self._call_function(instr.func_name, args)
-            if instr.result:
-                self._store(instr.result, result)
+            if instr.func_name in self.BUILTINS:
+                result = self._call_builtin(instr.func_name, args)
+                if instr.result:
+                    self._store(instr.result, result)
+            else:
+                if instr.func_name not in self.func_map:
+                    raise InterpreterError(f"Undefined function '{instr.func_name}'")
+
+                # Save caller state
+                saved = {
+                    "pc": self.pc,
+                    "frame": self.current_frame,
+                    "result_var": instr.result
+                }
+                self.call_stack.append(saved)
+
+                # New frame — child of global so recipes can't see start's locals
+                new_frame = Frame(instr.func_name, parent=self.global_frame)
+                for i, val in enumerate(args):
+                    new_frame.set(f"p{i}", val)
+                self.current_frame = new_frame
+
+                # Jump to function body (one past FUNC_BEGIN)
+                self.pc = self.func_map[instr.func_name] + 1
 
         elif t is TACGoto:
             self.pc = self._resolve_label(instr.label)
@@ -289,50 +310,20 @@ class TACInterpreter:
 
         elif t is TACReturn:
             val = self._load(instr.value) if instr.value else None
-            raise ReturnSignal(val)
+            
+            if not self.call_stack:
+                self.pc = len(self.instructions)
+            else:
+                saved = self.call_stack.pop()
+                self.pc = saved["pc"]
+                self.current_frame = saved["frame"]
+                if saved.get("result_var"):
+                    self._store(saved["result_var"], val)
 
         else:
             pass  # unknown instruction — skip silently
 
-    # ── Function call / return ─────────────────────────────────────────────────
-
-    def _call_function(self, name: str, args: List[Any]) -> Any:
-        # Built-in functions
-        if name in self.BUILTINS:
-            return self._call_builtin(name, args)
-
-        if name not in self.func_map:
-            raise InterpreterError(f"Undefined function '{name}'")
-
-        # Save caller state
-        saved = {
-            "pc": self.pc,
-            "frame": self.current_frame,
-        }
-        self.call_stack.append(saved)
-
-        # New frame — child of global so recipes can't see start's locals
-        new_frame = Frame(name, parent=self.global_frame)
-        # Bind parameters by position as p0, p1, ...
-        for i, val in enumerate(args):
-            new_frame.set(f"p{i}", val)
-        self.current_frame = new_frame
-
-        # Jump to function body (one past FUNC_BEGIN)
-        self.pc = self.func_map[name] + 1
-
-        return_value = None
-        try:
-            self._execute()
-        except ReturnSignal as r:
-            return_value = r.value
-
-        # Restore caller state
-        saved = self.call_stack.pop()
-        self.pc = saved["pc"]
-        self.current_frame = saved["frame"]
-
-        return return_value
+    # ── Built-in functions execution ───────────────────────────────────────────
 
     def _process_string_literal(self, text: str) -> str:
         """Process escape sequences and remove quotes from string literals."""
@@ -351,8 +342,29 @@ class TACInterpreter:
     def _call_builtin(self, name: str, args: List[Any]) -> Any:
         fn = self.BUILTINS[name]
 
+        # ── Type conversions ─────────────────────────────────────────────
+        if name == "topiece":
+            if not args:
+                return 0
+            try:
+                return int(float(args[0]))
+            except (ValueError, TypeError):
+                raise InterpreterError(
+                    f"topiece(): cannot convert {self._platter_type(args[0])} value '{args[0]}' to piece"
+                )
+
+        elif name == "tosip":
+            if not args:
+                return 0.0
+            try:
+                return float(args[0])
+            except (ValueError, TypeError):
+                raise InterpreterError(
+                    f"tosip(): cannot convert {self._platter_type(args[0])} value '{args[0]}' to sip"
+                )
+
         # ── I/O ──────────────────────────────────────────────────────────
-        if name == "bill":
+        elif name == "bill":
             # bill(chars_value) → outputs text, serves ""
             text = str(args[0]) if args else ""
             # Process escape sequences and remove quotes
@@ -365,6 +377,7 @@ class TACInterpreter:
             if self._stdin_idx < len(self.stdin_lines):
                 val = self.stdin_lines[self._stdin_idx]
                 self._stdin_idx += 1
+                self.output_lines.append(str(val) + "\n")
                 return val
             else:
                 raise InputPauseSignal(
@@ -438,6 +451,46 @@ class TACInterpreter:
                 raise InterpreterError(f"Built-in '{name}' has no implementation")
             return fn(args)
 
+    # ── Type name helpers ──────────────────────────────────────────────────────
+
+    @staticmethod
+    def _platter_type(val: Any) -> str:
+        """Return the Platter type name for a Python value."""
+        if isinstance(val, bool):
+            return "flag"
+        if isinstance(val, int):
+            return "piece"
+        if isinstance(val, float):
+            return "sip"
+        if isinstance(val, str):
+            return "chars"
+        if isinstance(val, list):
+            return "array"
+        if isinstance(val, dict):
+            return "table"
+        return type(val).__name__
+
+    @staticmethod
+    def _translate_error(msg: str) -> str:
+        """Replace Python type names with Platter equivalents in error messages."""
+        msg = msg.replace("could not convert string to float", "cannot convert chars to sip")
+        msg = msg.replace("could not convert string to int", "cannot convert chars to piece")
+        msg = msg.replace("invalid literal for int", "invalid piece value")
+        msg = msg.replace(" float ", " sip ")
+        msg = msg.replace(" float'", " sip'")
+        msg = msg.replace("'float'", "'sip'")
+        msg = msg.replace(" int ", " piece ")
+        msg = msg.replace(" int'", " piece'")
+        msg = msg.replace("'int'", "'piece'")
+        msg = msg.replace(" str ", " chars ")
+        msg = msg.replace(" str'", " chars'")
+        msg = msg.replace("'str'", "'chars'")
+        msg = msg.replace(" bool ", " flag ")
+        msg = msg.replace(" bool'", " flag'")
+        msg = msg.replace("'bool'", "'flag'")
+        msg = msg.replace("string", "chars")
+        return msg
+
     # ── Variable load / store ──────────────────────────────────────────────────
 
     def _load(self, name: str) -> Any:
@@ -481,7 +534,10 @@ class TACInterpreter:
             "+":   lambda a, b: a + b,
             "-":   lambda a, b: a - b,
             "*":   lambda a, b: a * b,
-            "/":   lambda a, b: a / b,
+            # piece/piece → integer division (truncate toward zero, C-style)
+            "/":   lambda a, b: int(a / b) if (isinstance(a, int) and not isinstance(a, bool)
+                                               and isinstance(b, int) and not isinstance(b, bool))
+                                           else a / b,
             "%":   lambda a, b: a % b,
             "==":  lambda a, b: a == b,
             "!=":  lambda a, b: a != b,
