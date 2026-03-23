@@ -10,6 +10,10 @@ from app.semantic_analyzer.ast.ast_parser_program import ASTParser
 from app.semantic_analyzer.ast.ast_reader import print_ast
 from app.semantic_analyzer import analyze_program
 from app.semantic_analyzer.symbol_table import print_symbol_table
+from app.intermediate_code.ir_generator import IRGenerator
+from app.intermediate_code.output_formatter import IRFormatter
+from app.intermediate_code.optimizer_manager import OptimizerManager, OptimizationLevel
+from app.intermediate_code.ir_interpreter import run_tac
 
 COPY_ERROR_TO_CLIPBOARD = True
 
@@ -124,6 +128,80 @@ if __name__ == "__main__":
                 print("\nErrors/Issues:")
                 for err in error_handler.get_errors():
                     print(f"  {err}")
+            
+            # Generate and display IR (TAC) if no errors
+            if not error_handler.has_errors():
+                print("\n" + "=" * 80)
+                print("INTERMEDIATE CODE GENERATION (TAC)")
+                print("=" * 80)
+                
+                try:
+                    # Generate IR
+                    ir_gen = IRGenerator()
+                    tac_instructions, quad_table = ir_gen.generate(ast)
+                    formatter = IRFormatter()
+                    
+                    # Display TAC
+                    ir_tac_text = formatter.format_tac_text(tac_instructions)
+                    print("\nThree Address Code:")
+                    print("-" * 80)
+                    print(ir_tac_text)
+                    
+                    # Optimize TAC
+                    optimizer = OptimizerManager(OptimizationLevel.STANDARD)
+                    optimized_tac = optimizer.optimize_tac(tac_instructions)
+                    ir_tac_optimized_text = formatter.format_tac_text(optimized_tac)
+                    
+                    print("\nOptimized TAC:")
+                    print("-" * 80)
+                    print(ir_tac_optimized_text)
+                    
+                    # Ask if user wants to execute
+                    print("\n" + "=" * 80)
+                    print("PROGRAM EXECUTION")
+                    print("=" * 80)
+                    execute = input("\nExecute the program? (y/n): ").strip().lower()
+                    
+                    if execute == 'y':
+                        # Collect stdin inputs if needed
+                        stdin_lines = []
+                        print("\nEnter input lines for the program (type 'END' on a new line to finish):")
+                        print("(Press Enter after each input line, use \\n for newlines within a line)")
+                        while True:
+                            try:
+                                line = input()
+                                if line == "END":
+                                    break
+                                # Process escape sequences in input
+                                line = line.replace('\\n', '\n').replace('\\t', '\t')
+                                stdin_lines.append(line)
+                            except EOFError:
+                                break
+                        
+                        # Execute
+                        print("\nExecution Output:")
+                        print("-" * 80)
+                        exec_result = run_tac(optimized_tac, stdin_lines=stdin_lines)
+                        
+                        if exec_result.get("success"):
+                            output = exec_result.get("output", "")
+                            print(output if output else "(no output)")
+                            
+                            # Show globals if any
+                            globals_dict = exec_result.get("globals", {})
+                            if globals_dict:
+                                print("\nFinal variable values:")
+                                for var, val in globals_dict.items():
+                                    print(f"  {var} = {val}")
+                        else:
+                            print(f"[Execution Error] {exec_result.get('error', 'Unknown error')}")
+                        
+                        print("-" * 80)
+                    
+                except Exception as ir_err:
+                    print(f"\nIR generation error: {ir_err}")
+                    import traceback
+                    traceback.print_exc()
                 
         except SyntaxError as e:
             print(f"\nSyntax Error: {e}")
