@@ -5,23 +5,23 @@ start(){
         bill("Enter number of columns: ");
         col = topiece(take());
         check (col < 1) {
-        	bill("Not a valid value");
-        	serve 0;
+                bill("Not a valid value");
+                serve 0;
         }
         
         bill("Enter number of rows: ");
         row = topiece(take());
         check (row < 1) {
-        	bill("Not a valid value");
-        	serve 0;
+                bill("Not a valid value");
+                serve 0;
         }
         
         pass(v = 1; v += 1; v <= row) {
             pass(i = 1; i += 1; i <= col) {
               bill(tochars(v * i) + "\t");
-        	}
-        	bill("\n");
-    	}
+                }
+                bill("\n");
+            }
   
 }
 --end

@@ -8,5 +8,7 @@ start(){
     bill("The sum is "+tochars(sum));
 }
 --end
-
+10
 --end
+Enter a number: 10
+The sum is 3025

@@ -10,6 +10,11 @@ start(){
         a = tosip(x);
         b = tosip(y);
 
+        check (b == 0.0) {
+                bill("Division by zero is not allowed");
+                serve 0;
+        }
+
         result = a / b;
 
         bill("Answer: " + tochars(result));

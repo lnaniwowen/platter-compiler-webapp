@@ -1,0 +1,39 @@
+start() {
+    piece of n;
+    piece of a = 0;
+    piece of b = 1;
+    piece of i = 0;
+
+    bill("Enter the series length: ");
+    n = topiece(take());
+
+    check (n <= 0) {
+        bill("Negative numbers or 0 are not allowed");
+        serve 0;
+    }
+
+    check (n >= 1) {
+        bill(tochars(a));
+        bill(" ");
+    }
+
+    check (n >= 2) {
+        bill(tochars(b));
+        bill(" ");
+    }
+
+    repeat(i < n - 2) {
+        piece of c = a + b;
+        bill(tochars(c));
+        bill(" ");
+
+        a = b;
+        b = c;
+        i = i + 1;
+    }
+}
+--end
+10
+--end
+Enter the series length: 10
+0 1 1 2 3 5 8 13 21 34

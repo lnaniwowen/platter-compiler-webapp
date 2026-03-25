@@ -1,6 +1,12 @@
 start() {
     piece of row, i, j;
-    row = 9;
+    bill("Enter the number of rows: ");
+    row = topiece(take());
+
+    check (row < 1) {
+        bill("Not a valid value");
+        serve 0;
+    }
 
     pass(i = row; i -= 1; i >= 1) {
         pass(j = 0; j += 1; j < row - i) {
@@ -21,7 +27,7 @@ start() {
 --end
 10
 --end
-Enter the number or rows: 10
+Enter the number of rows: 10
 *******************
  *               *
   *             *

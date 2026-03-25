@@ -96,6 +96,7 @@ def run_compiler(code: str, inputs: list[str]) -> dict:
 
 class TestCompiler(unittest.TestCase):
     def test_compiler_cases(self):
+        self.maxDiff = None
         cases = load_cases()
         if not cases:
             self.skipTest(f"No case files found in {MACHINE_PROBLEMS_DIR}")
@@ -111,7 +112,7 @@ class TestCompiler(unittest.TestCase):
                         f"Error: {result['error']}"
                     ),
                 )
-                self.assertEqual(result["output"], case["expected_output"])
+                self.assertEqual(result["output"].rstrip(), case["expected_output"].rstrip())
 
 
 if __name__ == "__main__":

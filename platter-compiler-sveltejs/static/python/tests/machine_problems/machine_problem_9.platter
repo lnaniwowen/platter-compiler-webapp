@@ -3,6 +3,11 @@ start() {
     bill("Enter the number of rows: ");
     row = topiece(take());
 
+    check (row < 2) {
+        bill("Not a valid value");
+        serve 0;
+    }
+
     pass(i = 1; i += 1; i <= row) {
         pass(j = 0; j += 1; j < row - i) {
             bill(" ");
@@ -13,16 +18,17 @@ start() {
         bill("\n");
     }
 }
-
 --end
 10
 --end
-        *
-       ***
-      *****
-     *******
-    *********
-   ***********
-  *************
- ***************
-*****************
+Enter the number of rows: 10
+         *
+        ***
+       *****
+      *******
+     *********
+    ***********
+   *************
+  ***************
+ *****************
+*******************

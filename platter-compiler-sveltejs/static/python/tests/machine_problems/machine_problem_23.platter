@@ -92,5 +92,10 @@ start() {
 }
 
 --end
-
+1001
 --end
+Input a Decimal Number: 1001
+
+Binary Value: 1111101001
+Octal Value: 1751
+Hexadecimal Value: 3E9

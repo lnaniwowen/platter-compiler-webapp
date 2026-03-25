@@ -25,13 +25,22 @@ def set_clipboard(text):
     except Exception:
         pass  
 
+
+def load_source_only(filepath):
+    with open(filepath, "r", encoding="utf-8-sig") as f:
+        raw_text = f.read()
+
+    lines = raw_text.splitlines()
+    end_indexes = [i for i, line in enumerate(lines) if line.strip() == "--end"]
+    if not end_indexes:
+        return raw_text
+    return "\n".join(lines[:end_indexes[0]])
+
 if __name__ == "__main__":
     filepath = sys.argv[1]
-    include_whitespace = False 
+    include_whitespace = False
 
-
-    with open(filepath, "r", encoding="utf-8") as f:
-        source = f.read()
+    source = load_source_only(filepath)
 
     lexer = Lexer(source)
     tokens = lexer.tokenize()
@@ -161,7 +170,7 @@ if __name__ == "__main__":
                     interpreter = TACInterpreter(optimized_tac)
                     printed_output_len = 0
                     pending_input_echo = None
-                    
+                    final_output = ""
                     while True:
                         exec_result = interpreter.run()
 
@@ -179,6 +188,7 @@ if __name__ == "__main__":
                             printed_output_len = len(current_output)
 
                         if exec_result.get("success"):
+                            final_output = exec_result.get("output", "")
                             break
                         if exec_result.get("paused"):
                             try:
@@ -191,6 +201,7 @@ if __name__ == "__main__":
                                     "output": exec_result.get("output", ""),
                                     "globals": exec_result.get("globals", {}),
                                 }
+                                final_output = exec_result.get("output", "")
                                 break
 
                             # Process escape sequences in user input
@@ -199,8 +210,8 @@ if __name__ == "__main__":
                             interpreter.stdin_lines.append(line)
                             continue
                         break
-                        
-                    
+                    # Set clipboard to the full execution output
+                    set_clipboard(final_output)
                 except Exception as ir_err:
                     print(f"\nIR generation error: {ir_err}")
                     import traceback
