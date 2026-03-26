@@ -201,6 +201,9 @@ class TypeChecker:
                 self._check_array_decl(decl)
             elif isinstance(decl, TableDecl):
                 self._check_table_decl(decl)
+            else:
+                # Parser quirk: some executable statements can be emitted in local_decls.
+                self._check_statement(decl)
         
         # Check statements
         for stmt in node.statements:
