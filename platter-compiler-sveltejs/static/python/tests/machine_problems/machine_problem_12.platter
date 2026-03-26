@@ -1,0 +1,40 @@
+start() {
+    piece of row, i, j;
+    bill("Enter the number of rows: ");
+    row = topiece(take());
+
+    check (row < 1) {
+        bill("Not a valid value");
+        serve 0;
+    }
+
+    pass(i = row; i -= 1; i >= 1) {
+        pass(j = 0; j += 1; j < row - i) {
+            bill(" ");
+        }
+
+        pass(j = 1; j += 1; j <= (2 * i - 1)) {
+            check (j == 1 or j == (2 * i - 1) or i == 1 or i == row) {
+                bill("*");
+            } instead {
+                bill(" ");
+            }
+        }
+
+        bill("\n");
+    }
+}
+--end
+10
+--end
+Enter the number of rows: 10
+*******************
+ *               *
+  *             *
+   *           *
+    *         *
+     *       *
+      *     *
+       *   *
+        * *
+         *

@@ -1,0 +1,31 @@
+start() {
+    piece of side, i, j;
+    bill("Enter the side size: ");
+    side = topiece(take());
+
+    check (side < 1) {
+        bill("Not a valid value");
+        serve 0;
+    }
+
+    pass(i = 0; i += 1; i < side) {
+        pass(j = 0; j += 1; j < side) {
+            bill(" * ");
+        }
+        bill("\n");
+    }
+}
+--end
+10
+--end
+Enter the side size: 10
+ *  *  *  *  *  *  *  *  *  * 
+ *  *  *  *  *  *  *  *  *  * 
+ *  *  *  *  *  *  *  *  *  * 
+ *  *  *  *  *  *  *  *  *  * 
+ *  *  *  *  *  *  *  *  *  * 
+ *  *  *  *  *  *  *  *  *  * 
+ *  *  *  *  *  *  *  *  *  * 
+ *  *  *  *  *  *  *  *  *  * 
+ *  *  *  *  *  *  *  *  *  * 
+ *  *  *  *  *  *  *  *  *  * 

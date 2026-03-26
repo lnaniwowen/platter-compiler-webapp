@@ -10,6 +10,10 @@ from app.semantic_analyzer.ast.ast_parser_program import ASTParser
 from app.semantic_analyzer.ast.ast_reader import print_ast
 from app.semantic_analyzer import analyze_program
 from app.semantic_analyzer.symbol_table import print_symbol_table
+from app.intermediate_code.ir_generator import IRGenerator
+from app.intermediate_code.output_formatter import IRFormatter
+from app.intermediate_code.optimizer_manager import OptimizerManager, OptimizationLevel
+from app.intermediate_code.ir_interpreter import TACInterpreter
 
 COPY_ERROR_TO_CLIPBOARD = True
 
@@ -21,13 +25,22 @@ def set_clipboard(text):
     except Exception:
         pass  
 
+
+def load_source_only(filepath):
+    with open(filepath, "r", encoding="utf-8-sig") as f:
+        raw_text = f.read()
+
+    lines = raw_text.splitlines()
+    end_indexes = [i for i, line in enumerate(lines) if line.strip() == "--end"]
+    if not end_indexes:
+        return raw_text
+    return "\n".join(lines[:end_indexes[0]])
+
 if __name__ == "__main__":
     filepath = sys.argv[1]
-    include_whitespace = False 
+    include_whitespace = False
 
-
-    with open(filepath, "r", encoding="utf-8") as f:
-        source = f.read()
+    source = load_source_only(filepath)
 
     lexer = Lexer(source)
     tokens = lexer.tokenize()
@@ -124,6 +137,85 @@ if __name__ == "__main__":
                 print("\nErrors/Issues:")
                 for err in error_handler.get_errors():
                     print(f"  {err}")
+            
+            # Generate and display IR (TAC) if no errors
+            if not error_handler.has_errors():
+                print("\n" + "=" * 80)
+                print("INTERMEDIATE CODE GENERATION (TAC)")
+                print("=" * 80)
+                
+                try:
+                    # Generate IR
+                    ir_gen = IRGenerator()
+                    tac_instructions, quad_table = ir_gen.generate(ast)
+                    formatter = IRFormatter()
+                    
+                    # Display TAC
+                    ir_tac_text = formatter.format_tac_text(tac_instructions)
+                    print("\nThree Address Code:")
+                    print("-" * 80)
+                    print(ir_tac_text)
+                    
+                    # Optimize TAC
+                    optimizer = OptimizerManager(OptimizationLevel.STANDARD)
+                    optimized_tac = optimizer.optimize_tac(tac_instructions)
+                    ir_tac_optimized_text = formatter.format_tac_text(optimized_tac)
+                    
+                    print("\nOptimized TAC:")
+                    print("-" * 80)
+                    print(ir_tac_optimized_text)
+                    
+                    print("\nExecution Output:")
+                    print("-" * 80)
+                    interpreter = TACInterpreter(optimized_tac)
+                    printed_output_len = 0
+                    pending_input_echo = None
+                    final_output = ""
+                    while True:
+                        exec_result = interpreter.run()
+
+                        # Stream only newly produced output so execution feels like a real terminal run.
+                        current_output = exec_result.get("output", "")
+                        if len(current_output) > printed_output_len:
+                            new_output = current_output[printed_output_len:]
+
+                            # Suppress interpreter's echoed take() input so terminal input appears only once.
+                            if pending_input_echo and new_output.startswith(pending_input_echo):
+                                new_output = new_output[len(pending_input_echo):]
+                            pending_input_echo = None
+
+                            print(new_output, end="")
+                            printed_output_len = len(current_output)
+
+                        if exec_result.get("success"):
+                            final_output = exec_result.get("output", "")
+                            break
+                        if exec_result.get("paused"):
+                            try:
+                                line = input()
+                            except EOFError:
+                                print("\n[Execution Error] Input stream ended while waiting for take().")
+                                exec_result = {
+                                    "success": False,
+                                    "error": "Input stream ended while waiting for take().",
+                                    "output": exec_result.get("output", ""),
+                                    "globals": exec_result.get("globals", {}),
+                                }
+                                final_output = exec_result.get("output", "")
+                                break
+
+                            # Process escape sequences in user input
+                            line = line.replace('\\n', '\n').replace('\\t', '\t')
+                            pending_input_echo = line + "\n"
+                            interpreter.stdin_lines.append(line)
+                            continue
+                        break
+                    # Set clipboard to the full execution output
+                    set_clipboard(final_output)
+                except Exception as ir_err:
+                    print(f"\nIR generation error: {ir_err}")
+                    import traceback
+                    traceback.print_exc()
                 
         except SyntaxError as e:
             print(f"\nSyntax Error: {e}")

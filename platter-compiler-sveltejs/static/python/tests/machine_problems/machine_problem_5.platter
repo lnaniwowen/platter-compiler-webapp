@@ -1,0 +1,28 @@
+start(){
+                chars of x = "", y = "";
+        sip of a, b, result;
+        
+        bill("Input first number: ");
+        x = take();
+        bill("Input second number: ");
+        y = take();
+
+        a = tosip(x);
+        b = tosip(y);
+
+        check (b == 0.0) {
+                bill("Division by zero is not allowed");
+                serve 0;
+        }
+
+        result = a / b;
+
+        bill("Answer: " + tochars(result));
+}
+--end
+1
+1
+--end
+Input first number: 1
+Input second number: 1
+Answer: 1.0

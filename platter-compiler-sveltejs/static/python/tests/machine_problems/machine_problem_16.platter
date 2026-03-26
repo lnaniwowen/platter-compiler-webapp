@@ -1,0 +1,43 @@
+start() {
+    piece of row, col, i, j;
+    bill("Enter the number of rows: ");
+    row =  topiece(take());
+    check (row < 1) {
+        bill("Not a valid value");
+        serve 0;
+    }
+    bill("Enter the number of columns: ");
+    col =  topiece(take());
+    check (col < 1) {
+        bill("Not a valid value");
+        serve 0;
+    }
+
+    pass(i = 0; i += 1; i < row) {
+        pass(j = 0; j += 1; j < col) {
+                check (j == 0 or j == col - 1 or i == 0 or i == row - 1) {
+                    bill("*");
+            } instead {
+                    bill(" ");
+            }
+            bill("    ");
+        }
+        bill("\n");
+    }
+}
+--end
+10
+5
+--end
+Enter the number of rows: 10
+Enter the number of columns: 5
+*    *    *    *    *    
+*                   *    
+*                   *    
+*                   *    
+*                   *    
+*                   *    
+*                   *    
+*                   *    
+*                   *    
+*    *    *    *    *    
