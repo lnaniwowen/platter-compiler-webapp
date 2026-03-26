@@ -1,0 +1,10 @@
+start(){
+flag of continue = up;
+piece of sum = 0, input = 0;
+
+order{
+	input = take();
+    check(input == 0){continue = down;}
+    check(input > 0){sum += input;}
+} repeat(continue == up);
+}
