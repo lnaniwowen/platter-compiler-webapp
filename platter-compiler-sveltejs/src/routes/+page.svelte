@@ -284,13 +284,15 @@ start() {
 			'/python/app/intermediate_code/quadruple.py',
 			'/python/app/intermediate_code/ir_generator.py',
 			'/python/app/intermediate_code/output_formatter.py',
-			'/python/app/intermediate_code/optimizer.py',
-			'/python/app/intermediate_code/constant_folding.py',
-			'/python/app/intermediate_code/propagation.py',
-			'/python/app/intermediate_code/dead_code_elimination.py',
-			'/python/app/intermediate_code/algebraic_simplification.py',
-			'/python/app/intermediate_code/optimizer_manager.py',
-			'/python/app/intermediate_code/ir_interpreter.py',
+			'/python/app/code_optimization/__init__.py',
+			'/python/app/code_optimization/optimizer.py',
+			'/python/app/code_optimization/constant_folding.py',
+			'/python/app/code_optimization/propagation.py',
+			'/python/app/code_optimization/dead_code_elimination.py',
+			'/python/app/code_optimization/algebraic_simplification.py',
+			'/python/app/code_optimization/optimizer_manager.py',
+			'/python/app/interpreter/__init__.py',
+			'/python/app/interpreter/ir_interpreter.py',
 		];
 
 		// Fetch and write Python files to Pyodide's virtual filesystem
@@ -525,7 +527,7 @@ start() {
 		terminalInputText = '';
 	}
 
-	async function handleTerminalInput() {
+	export async function handleTerminalInput() {
 		if (!terminalInputText || !pyodideReady) return;
 		const input = terminalInputText;
 		terminalInputText = '';
@@ -724,17 +726,20 @@ for module_name in [
     'app.intermediate_code.quadruple',
     'app.intermediate_code.ir_generator',
     'app.intermediate_code.output_formatter',
-    'app.intermediate_code.optimizer',
-    'app.intermediate_code.constant_folding',
-    'app.intermediate_code.propagation',
-    'app.intermediate_code.dead_code_elimination',
-    'app.intermediate_code.algebraic_simplification',
-    'app.intermediate_code.optimizer_manager',
-    'app.intermediate_code.ir_interpreter',
+    'app.code_optimization',
+    'app.code_optimization.optimizer',
+    'app.code_optimization.constant_folding',
+    'app.code_optimization.propagation',
+    'app.code_optimization.dead_code_elimination',
+    'app.code_optimization.algebraic_simplification',
+    'app.code_optimization.optimizer_manager',
+    'app.interpreter',
+    'app.interpreter.ir_interpreter',
 ]:
     _safe_reload(module_name)
 
 from app.lexer.lexer import Lexer
+from app.parser.parser_program import Parser as SyntaxParser
 from app.semantic_analyzer.ast.ast_parser_program import ASTParser
 from app.semantic_analyzer.ast.ast_reader import ASTReader, print_ast
 from app.semantic_analyzer import analyze_program
@@ -745,6 +750,11 @@ result = None
 try:
     lexer = Lexer(code_input)
     tokens = lexer.tokenize()
+    # Run syntax check first; raises SyntaxError on failure
+    syntax_tokens = [t for t in tokens if t.type not in ("space", "tab", "newline", "comment_single", "comment_multi")]
+    syntax_parser = SyntaxParser(syntax_tokens)
+    syntax_parser.parse_program()
+    # Syntax OK — proceed with AST parser and semantic analysis
     parser = ASTParser(tokens)
     ast = parser.parse_program()
     
@@ -799,7 +809,7 @@ try:
             print("Intermediate Code (Quadruples)")
             print("="*80)
             print(ir_quads_text)
-            optimizer_module = __import__('app.intermediate_code.optimizer_manager', fromlist=['OptimizerManager', 'OptimizationLevel'])
+            optimizer_module = __import__('app.code_optimization.optimizer_manager', fromlist=['OptimizerManager', 'OptimizationLevel'])
             OptimizerManager = optimizer_module.OptimizerManager
             OptimizationLevel = optimizer_module.OptimizationLevel
             optimizer = OptimizerManager(OptimizationLevel.STANDARD)
@@ -815,7 +825,7 @@ try:
             print("Program Execution (IR Interpreter)")
             print("="*80)
             
-            interpreter_module = __import__('app.intermediate_code.ir_interpreter', fromlist=['TACInterpreter'])
+            interpreter_module = __import__('app.interpreter.ir_interpreter', fromlist=['TACInterpreter'])
             TACInterpreter = interpreter_module.TACInterpreter
             interpreter = TACInterpreter(optimized_tac)
             import sys
