@@ -10,7 +10,7 @@ from app.code_optimization.optimizer_manager import OptimizationLevel, Optimizer
 from app.interpreter.ir_interpreter import run_tac
 
 
-MACHINE_PROBLEMS_DIR = Path(__file__).resolve().parent / "tac"
+MACHINE_PROBLEMS_DIR = Path(__file__).resolve().parent / "machine_problems"
 
 
 def parse_machine_problem_file(file_path: Path) -> dict:
