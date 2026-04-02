@@ -537,14 +537,9 @@ start() {
 	// default to empty terminal (no messages) so termMessages.length === 0
 	let termMessages: TermMsg[] = [];
 
-	// Compute error count: treat messages that start with "Lexical OK" as non-errors (count as zero)
-	$: errorCount = termMessages.filter(
-		(m) =>
-			!(
-				typeof m.text === 'string' &&
-				(m.text.startsWith('Lexical OK') || m.text.startsWith('No Syntax Error') || m.text.startsWith('Warning:'))
-			)
-	).length;
+	// Compute error count: only messages that carry an errorIcon are actual errors.
+	// Program output lines (no icon) and OK/warning messages are never counted.
+	$: errorCount = termMessages.filter((m) => m.icon === errorIcon).length;
 
 	function setTerminalOk(message = 'No Error') {
 		termMessages = [{ icon: check, text: message }];
