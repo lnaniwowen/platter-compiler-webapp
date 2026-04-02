@@ -163,29 +163,29 @@ class TACInterpreter:
                             if not k.startswith("t")},
             }
         except (ValueError, TypeError) as e:
-            self.output_lines.append("Program terminated with error")
             return {
                 "success": False,
                 "paused": False,
                 "error": self._translate_error(str(e)),
                 "output": "".join(self.output_lines),
+                "terminate_message": "Program terminated with error",
                 "stdin_consumed": self._stdin_idx,
             }
         except InterpreterError as e:
-            self.output_lines.append("Program terminated with error")
             return {
                 "success": False,
                 "paused": False,
                 "error": self._translate_error(str(e)),
                 "output": "".join(self.output_lines),
+                "terminate_message": "Program terminated with error",
                 "stdin_consumed": self._stdin_idx,
             }
 
-        self.output_lines.append(f"\nProgram ended with exit code {self.exit_code}")
         return {
             "success": True,
             "paused": False,
             "output": "".join(self.output_lines),
+            "exit_message": f"\nProgram ended with exit code {self.exit_code}",
             "stdin_consumed": self._stdin_idx,
             "globals": {k: v for k, v in self.global_frame.vars.items()
                         if not k.startswith("t")},  # hide temps

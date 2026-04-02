@@ -537,8 +537,7 @@ start() {
 	// default to empty terminal (no messages) so termMessages.length === 0
 	let termMessages: TermMsg[] = [];
 
-	// Compute error count: only messages that carry an errorIcon are actual errors.
-	// Program output lines (no icon) and OK/warning messages are never counted.
+
 	$: errorCount = termMessages.filter((m) => m.icon === errorIcon).length;
 
 	function setTerminalOk(message = 'No Error') {
@@ -863,6 +862,8 @@ try:
             execution_error = exec_result.get("error", "")
             execution_paused = exec_result.get("paused", False)
             execution_globals = exec_result.get("globals", {})
+            execution_exit_message = exec_result.get("exit_message", "")
+            execution_terminate_message = exec_result.get("terminate_message", "")
             print("[Execution OK]" if execution_success else "[Execution Paused]" if execution_paused else f"[Execution Error] {execution_error}")
             print(execution_output if execution_output else "(no output)")
         except Exception as ir_err:
@@ -953,6 +954,8 @@ try:
             "execution_error": execution_error,
             "execution_paused": execution_paused,
             "execution_globals": json.dumps(execution_globals),
+            "execution_exit_message": execution_exit_message,
+            "execution_terminate_message": execution_terminate_message,
             "errors": error_list,
             "semantic_errors": json.dumps(error_messages),
             "semantic_warnings": json.dumps(warning_messages),
@@ -989,6 +992,8 @@ try:
             "execution_error": execution_error,
             "execution_paused": execution_paused,
             "execution_globals": json.dumps(execution_globals),
+            "execution_exit_message": execution_exit_message,
+            "execution_terminate_message": execution_terminate_message,
             "semantic_warnings": json.dumps(warning_messages_success),
             "error_markers": json.dumps(warning_markers_success)
         }
@@ -1025,13 +1030,24 @@ result
 								successMsgs.push({ text: lines[i] });
 							}
 						}
-						
+
 						if (data.execution_success) {
+							// Append exit code message (separate field, not part of output)
+							if (data.execution_exit_message) {
+								const exitLines = data.execution_exit_message.split('\n');
+								for (const l of exitLines) {
+									if (l !== '') successMsgs.push({ text: l });
+								}
+							}
 							isWaitingForInput = false;
 						} else if (data.execution_paused) {
 							isWaitingForInput = true;
 						} else if (data.execution_error) {
 							successMsgs.push({ icon: errorIcon, text: `Runtime Error: ${data.execution_error}` });
+							// Append termination message (separate field, not part of output)
+							if (data.execution_terminate_message) {
+								successMsgs.push({ text: data.execution_terminate_message });
+							}
 							isWaitingForInput = false;
 						}
 					} else {
