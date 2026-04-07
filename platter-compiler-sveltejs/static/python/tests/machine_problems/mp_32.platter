@@ -1,0 +1,40 @@
+# Write a program to find the LCM of two numbers using recursion.
+
+prepare piece of LCM(piece of a, piece of b, piece of multiple){
+	piece of max_num;
+    check(a > b){ max_num = a; }
+    instead { max_num = b; }
+    
+    check(multiple == 0){
+    	multiple = max_num; 
+    }
+    
+    check(multiple % a == 0 and multiple % b == 0){
+    	serve multiple;
+    }
+    
+    serve LCM(a, b, multiple + max_num);
+}
+
+start(){
+	piece of a;
+	piece of b;
+    piece of lcm_num;
+    
+	bill("Enter first number: ");
+    a = topiece(take());
+    
+    bill("Enter second number: ");
+	b = topiece(take());
+    
+    lcm_num = LCM(a, b, 0);
+    bill("The LCM of " + tochars(a) + " and " + tochars(b) + ": " + tochars(lcm_num));
+    
+}
+--end
+12
+18
+--end
+Enter first number: 12
+Enter second number: 18
+The LCM of 12 and 18: 36
