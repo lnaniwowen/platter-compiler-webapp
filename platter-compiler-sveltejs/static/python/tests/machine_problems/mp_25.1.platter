@@ -1,0 +1,111 @@
+# Using a while loop, given a numebr, determine if the number is palindrome or not a palindrome
+
+prepare chars of getChar(chars of input, piece of i) {
+    piece of index = i + 1;
+    serve copy(input, index, index); 
+}
+
+prepare piece of charsSize(chars of input) {
+    piece of i = 1;
+    repeat(up) {
+        chars of char = copy(input, i, i);
+        check (char == "") {
+            serve i - 1;
+        }
+        i += 1;
+    }
+    serve 0;
+}
+
+start(){
+    chars of input;
+    flag of isValid = up;
+    piece of i = 0;
+    piece of dotCount = 0;
+     bill("Palindrome number checker (no spaces)\nEnter a number: ");
+    input = take();
+
+    check(input == ""){
+        isValid = down;
+    }
+
+    check(isValid == up){
+        check(getChar(input, 0) == "-"){
+            check(charsSize(input) == 1){
+                isValid = down;
+            }
+            i = 1;
+        }
+
+        repeat(i < charsSize(input)){
+            chars of c = getChar(input, i);
+
+            check(c == "."){
+                dotCount += 1;
+                check(dotCount > 1){
+                    isValid = down;
+                    stop;
+                }
+            }
+            instead{
+                check(c < "0" or c > "9"){
+                    isValid = down;
+                    stop;
+                }
+            }
+
+            i += 1;
+        }
+
+        check(dotCount == 1){
+            check(getChar(input, 0) == "." or getChar(input, charsSize(input) - 1) == "."){
+                isValid = down;
+            }
+        }
+    }
+
+    check(isValid == down){
+        bill("Invalid input");
+    }
+    instead{
+        chars of num;
+
+        check(getChar(input, 0) == "-"){
+            num = copy(input, 1, charsSize(input) - 1);
+        }
+        instead{
+            num = input;
+        }
+
+        check(num == ""){
+            bill("Invalid input");
+        }
+        instead{
+            piece of left = 0;
+            piece of right = charsSize(num) - 1;
+            flag of isPal = up;
+
+            repeat(left < right){
+                check(getChar(num, left) != getChar(num, right)){
+                    isPal = down;
+                    stop;
+                }
+                left += 1;
+                right -= 1;
+            }
+
+            check(isPal == up){
+                bill("Palindrome");
+            }
+            instead{
+                bill("Not a palindrome");
+            }
+        }
+    }
+}
+--end
+1000.0001
+--end
+Palindrome number checker (no spaces)
+Enter a number: 1000.0001
+Palindrome

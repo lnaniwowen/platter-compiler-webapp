@@ -1,7 +1,7 @@
 # Difference of 2 input numbers
 
 start(){
-                chars of x = "", y = "";
+        chars of x = "", y = "";
         sip of a, b, result;
         
         bill("Input first number: ");

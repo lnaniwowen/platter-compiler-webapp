@@ -1,0 +1,26 @@
+##
+Write a  program to find the Hailstone Sequence of a given number up to 1.
+Example: Input any number (positive) to start for Hailstone Sequence : 13
+The hailstone sequence starting at 13 is :                                                               
+13  40  20  10  5  16  8  4  2 1 
+##
+start(){
+	piece of num = topiece(bill("Input any positive number to start the Hailstone Sequence : ")+take());
+    check(num < 1){ bill("Invalid Input"); serve 1;}
+    bill("The hailstone sequence starting from "+tochars(num)+" is :\n"+tochars(num)+" ");
+    repeat(num != 1){
+    	check(num%2 == 0){
+        	num/=2;
+            bill(tochars(num)+" ");
+        } instead {
+        	num = 3 * num + 1;
+            bill(tochars(num)+" ");            
+        }
+    }
+}
+--end
+13
+--end
+Input any positive number to start the Hailstone Sequence : 13
+The hailstone sequence starting from 13 is :
+13 40 20 10 5 16 8 4 2 1 

@@ -1,0 +1,56 @@
+# Using a while loop, given a word, determine if the word is a palindrome or not a palindrome
+
+prepare chars of getChar(chars of input, piece of i) {
+    piece of index = i + 1;
+    serve copy(input, index, index); 
+}
+
+prepare piece of charsSize(chars of input) {
+    piece of i = 1;
+    repeat(up) {
+        chars of char = copy(input, i, i);
+        check (char == "") {
+            serve i - 1;
+        }
+        i += 1;
+    }
+    serve 0;
+}
+
+start(){
+    chars of input;
+
+    bill("Palindrome word checker (case and space sensitive)\nEnter a word: ");
+    input = take();
+
+    check(input == ""){
+        bill("Invalid input");
+    }
+    instead{
+        piece of left = 0;
+        piece of right = charsSize(input) - 1;
+        flag of isPal = up;
+
+        repeat(left < right){
+            check(getChar(input, left) != getChar(input, right)){
+                isPal = down;
+                stop;
+            }
+            left += 1;
+            right -= 1;
+        }
+
+        check(isPal == up){
+            bill("Palindrome");
+        }
+        instead{
+            bill("Not a palindrome");
+        }
+    }
+}
+--end
+Hello World dlroW olleH
+--end
+Palindrome word checker (case and space sensitive)
+Enter a word: Hello World dlroW olleH
+Palindrome

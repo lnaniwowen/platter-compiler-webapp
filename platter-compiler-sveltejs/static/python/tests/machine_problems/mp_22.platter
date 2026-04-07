@@ -1,0 +1,98 @@
+## 
+Write a program that prompts the user to input a series of numbers until they 
+input a duplicate number. Use a while loop to check for triplicate. 
+##
+
+# added sum of triplicate inputs
+
+piece[] of nums;
+
+prepare flag of isValidNumber(chars of text){
+    piece of i = 1;
+    chars of ch = "";
+
+    check (text == ""){
+        serve down;
+    }
+
+    repeat (copy(text, i, i) != ""){
+        ch = copy(text, i, i);
+
+        check (i == 1 and ch == "-"){
+           
+        } instead {
+            check (ch < "0" or ch > "9"){
+                serve down;
+            }
+        }
+
+        i += 1;
+    }
+
+    serve up;
+}
+
+start(){
+    chars of raw = "";
+    piece of inputNum;
+    piece of i;
+    piece of count, totalSum;
+    flag of isTriplicate = down;
+
+    nums = [];
+    bill("Enter a series of numbers\n");
+
+    repeat (not isTriplicate){
+        raw = take();
+
+        check (isValidNumber(raw)){
+            inputNum = topiece(raw);
+
+            i = 0;
+            count = 0;
+
+            repeat (i < size(nums)){
+                check (nums[i] == inputNum){
+                    count += 1;
+                }
+
+                i += 1;
+            }
+
+            check (count == 2){
+                            isTriplicate = up;
+                            totalSum += inputNum + inputNum + inputNum;   # triplicate
+                        }                
+
+            check (not isTriplicate){
+                append(nums, inputNum);
+            }
+
+        } instead {
+            bill("Invalid input. Numbers only.\n");
+        }
+    }
+
+    bill("Triplicate found. Program stopped. \n");
+    bill("Sum of triplicates: " + tochars(totalSum));
+        bill("\n");
+
+}
+--end
+0
+1
+a
+-10
+-10
+-10
+--end
+Enter a series of numbers
+0
+1
+a
+Invalid input. Numbers only.
+-10
+-10
+-10
+Triplicate found. Program stopped. 
+Sum of triplicates: -30

@@ -111,7 +111,7 @@ start() {
     flag of isValidInput;
     piece of decimalValue;
 
-    bill("Input a Binary: ");
+    bill("Input a Binary number: ");
     binaryInput = take();
 
     isValidInput = isBinary(binaryInput);
@@ -135,7 +135,7 @@ start() {
 --end
 1011
 --end
-Input a Binary: 1011
+Input a Binary number: 1011
 
 Decimal Value: 11
 Octal Value: 13
