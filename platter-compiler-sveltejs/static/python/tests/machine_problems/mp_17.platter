@@ -100,3 +100,29 @@ start(){
         }
     } repeat(menu_choice < 1 or menu_choice > 4);
 }
+--end
+5
+2
+3
+2
+--end
+Choose a shape:
+1 - Area of a Circle
+2 - Area of a Triangle
+3 - Area of a Square
+4 - Area of a Rectangle
+Enter your choice (1-4):
+5
+Invalid Input
+Choose a shape:
+1 - Area of a Circle
+2 - Area of a Triangle
+3 - Area of a Square
+4 - Area of a Rectangle
+Enter your choice (1-4):
+2
+Enter base:
+3
+Enter height:
+2
+Area of Triangle: 3.0

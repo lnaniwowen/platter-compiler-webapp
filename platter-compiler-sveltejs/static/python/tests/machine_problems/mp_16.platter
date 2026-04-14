@@ -2,7 +2,7 @@
 
 Use nested if’s or switch statement for the choices from a-d/1-4, 
 if choice is beyond the 4 choices prompt the user “Invalid Input” or possible run time error.
-## 
+##
 
 start(){
     piece of num = 0;
@@ -26,7 +26,7 @@ start(){
         num = topiece(take());
 
         check(num < 1 or num > 4){
-            bill("Invalid Input");
+            bill("Invalid Input \n");
         } instead {
             menu(num){
                 choice 1:
@@ -62,8 +62,28 @@ start(){
                     stop;
 
                 usual:
-                    bill("Invalid Input");
+                    bill("Invalid Input \n");
             }
         }
     } repeat(num < 1 or num > 4);
 }
+--end
+5
+1
+6
+--end
+Choose a shape: 
+1 - Area of a Circle 
+2 - Area of a Triangle 
+3 - Area of a Square 
+4 - Area of a Rectangle 
+Enter your choice (1-4): 5
+Invalid Input 
+Choose a shape: 
+1 - Area of a Circle 
+2 - Area of a Triangle 
+3 - Area of a Square 
+4 - Area of a Rectangle 
+Enter your choice (1-4): 1
+Enter radius: 6
+Area of Circle: 113.09723999999999

@@ -28,3 +28,8 @@ start(){
         bill("Invalid Input\n");
     }
 }
+--end
+6
+--end
+Input a number: 6
+1 2 3 4 5 6

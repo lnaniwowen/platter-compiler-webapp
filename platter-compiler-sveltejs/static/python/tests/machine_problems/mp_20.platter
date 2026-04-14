@@ -24,3 +24,8 @@ start(){
     digit_count = count_digits(input_number);
     bill("The number of digits in the number is :  " + tochars(digit_count));
 }
+--end
+5000
+--end
+Input a number : 5000
+The number of digits in the number is :  4
