@@ -1,0 +1,48 @@
+##  
+Write a program that inputs  any 5 letter word and arrange it in ascending or descending order. The user will have a choice if it is ascending or descending.
+
+Input - hello
+Ouput - ehllo (ascending)
+      - ollhe (descending)
+##
+
+start(){
+    chars of word;
+    chars of opt;
+    chars of a, b;
+    piece of i, j;
+
+    bill("Enter a 5-letter word: ");
+    word = take();
+
+    bill("[1] Ascending\n[2] Descending\nEnter order: ");
+    opt = take();
+
+    pass(i = 1; i += 1; i <= 5){
+        pass(j = 1; j += 1; j < 5){
+            a = copy(word, j, j);
+            b = copy(word, j + 1, j + 1);
+
+            check(opt == "1"){
+                check(a > b){
+                    word = copy(word, 1, j - 1) + b + a + copy(word, j + 2, 5);
+                }
+            } alt(opt == "2"){
+                check(a < b){
+                    word = copy(word, 1, j - 1) + b + a + copy(word, j + 2, 5);
+                }
+            }
+        }
+    }
+
+    bill("Output: " + word);
+}
+--end
+hello
+1
+--end
+Enter a 5-letter word: hello
+[1] Ascending
+[2] Descending
+Enter order: 1
+Output: ehllo

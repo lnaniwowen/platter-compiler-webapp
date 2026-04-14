@@ -1,0 +1,46 @@
+##  
+Display the sum of all even numbers and the average of all odd numbers from 1 to N. N is a user input.
+##
+
+piece of i, N;
+piece of sum_even, sum_odd, count_odd;
+sip of avg_odd;
+
+start(){
+
+    bill("Enter value of N: ");
+    N = topiece(take());
+
+    sum_even = 0;
+    sum_odd = 0;
+    count_odd = 0;
+    i = 1;
+
+    repeat(i <= N){
+
+        check(i % 2 == 0){
+            sum_even = sum_even + i;
+        } instead {
+            sum_odd = sum_odd + i;
+            count_odd = count_odd + 1;
+        }
+
+        i = i + 1;
+    }
+
+    # compute average of odd numbers
+    check(count_odd > 0){
+        avg_odd = tosip(sum_odd) / tosip(count_odd);
+    } instead {
+        avg_odd = 0.0;
+    }
+
+    bill("Sum of even numbers from 1 to N: " + tochars(sum_even));
+    bill("\nAverage of odd numbers from 1 to N: " + tochars(avg_odd));
+}
+--end
+10
+--end
+Enter value of N: 10
+Sum of even numbers from 1 to N: 30
+Average of odd numbers from 1 to N: 5.0
