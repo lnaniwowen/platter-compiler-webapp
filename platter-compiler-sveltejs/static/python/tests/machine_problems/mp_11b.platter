@@ -1,5 +1,18 @@
 # Square root of input number (not using sqrt() built in recipe)
-
-start(){}
+# Floored to ones
+prepare piece of floorSqrt(piece of num){
+	piece of res = 1; 
+    repeat(res * res <= num){
+    	res+=1;
+    }
+    serve res-(1);
+}
+start(){
+	piece of input = topiece(bill("Enter a number: ")+take());
+    bill("The square root of "+tochars(input)+" is "+tochars(floorSqrt(input)));
+}
 --end
+9
 --end
+Enter a number: 9
+The square root of 9 is 3

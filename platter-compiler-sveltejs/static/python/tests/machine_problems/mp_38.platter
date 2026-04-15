@@ -1,0 +1,56 @@
+##
+Prime number: factors are only 1 and itself
+Input: Start and End numbers then determine all the prime numbers in between (inclusive).
+##
+
+prepare flag of isPrime(piece of n){
+
+    piece of i;
+
+    check(n <= 1){
+        serve down;
+    }
+
+    i = 2;
+
+    repeat(i < n){
+        check(n % i == 0){
+            serve down;
+        }
+        i = i + 1;
+    }
+
+    serve up;
+}
+
+start(){
+    piece of s, e, i;
+
+    bill("Enter start: ");
+    s = topiece(take());
+
+    bill("Enter end: ");
+    e = topiece(take());
+
+    bill("Prime numbers between (inculsive) " + tochars(s) + " and " + tochars(e) + " = ");
+
+    i = s;
+
+    repeat(i <= e){
+
+        check(isPrime(i)){
+            bill(tochars(i) + " ");
+        }
+
+        i = i + 1;
+    }
+
+    bill("\n");
+}
+--end
+1
+100
+--end
+Enter start: 1
+Enter end: 100
+Prime numbers between (inculsive) 1 and 100 = 2 3 5 7 11 13 17 19 23 29 31 37 41 43 47 53 59 61 67 71 73 79 83 89 97 
