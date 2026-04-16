@@ -1,4 +1,7 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> ccc07f86e9124abf2f46ff3b7e8d61364641e08b
 ##  Addition of two matrices. 
 Ask the user to input 5 numbers/elements in each array A and Array B, 
 store the sum of the numbers in  Array A & Array B in Array C.##
@@ -35,6 +38,7 @@ start(){
         bill(tochars(arrayC[i]) + " ");
     }
     bill("\n");
+<<<<<<< HEAD
 =======
 ## 
 Addition of two matrices. Ask the user to input 5 numbers/elements in each array A and Array B, store the sum of the numbers in  Array A & Array B in Array C.
@@ -80,6 +84,8 @@ start(){
     printNumArray(sumArray(A,B));
     bill("]");
 >>>>>>> 5a52cd56274f53a5a14f0c5be9956be0e7914e34
+=======
+>>>>>>> ccc07f86e9124abf2f46ff3b7e8d61364641e08b
 }
 --end
 1
@@ -88,6 +94,9 @@ start(){
 4
 5
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> ccc07f86e9124abf2f46ff3b7e8d61364641e08b
 6
 7
 8
@@ -109,6 +118,7 @@ B[3]: 9
 B[4]: 1
 
 The sum (Array C) is: 7.0 9.0 11.0 13.0 6.0 
+<<<<<<< HEAD
 =======
 1
 2
@@ -130,3 +140,5 @@ Number 4: 4
 Number 5: 5
 Sum of Array A and B in C = [2 4 6 8 10 ]
 >>>>>>> 5a52cd56274f53a5a14f0c5be9956be0e7914e34
+=======
+>>>>>>> ccc07f86e9124abf2f46ff3b7e8d61364641e08b
