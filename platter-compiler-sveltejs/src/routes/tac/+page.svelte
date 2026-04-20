@@ -222,7 +222,7 @@ start() {
 	}
 
 	// file input for opening .platter files
-	let fileInputEl: HTMLInputElement;
+	let fileInputEl: HTMLInputElement | null = null;
 
 	function openFileDialog() {
 		normalizeCurlyQuotes();
@@ -1869,13 +1869,13 @@ tokens
 		</section>
 
 		<!-- Panel Resizer -->
-		<div
+		<button
+			type="button"
 			class="resizer"
 			on:mousedown={startPanelResize}
-			role="separator"
 			aria-label="Drag to resize panels"
 			title="Drag to resize panels"
-		></div>
+		></button>
 
 		<!-- RIGHT SIDEBAR -->
 		<aside class="right">
@@ -2094,19 +2094,6 @@ tokens
 	.spacer {
 		flex: 1;
 	}
-	.icon-btn {
-		display: inline-flex;
-		align-items: center;
-		gap: 10px;
-		border: 4px solid var(--outline);
-		background: transparent;
-		color: var(--ink);
-		padding: 8px 12px;
-		border-radius: 8px;
-		cursor: pointer;
-		box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.15) inset;
-	}
-
 	/* toolbar icon image inside buttons */
 	.icon {
 		width: 18px;
@@ -2160,8 +2147,11 @@ tokens
 		box-sizing: border-box;
 		margin: 0;
 		border: none;
+		resize: none;
+		outline: none;
+		width: auto;
+		height: auto;
 	}
-
 	.table-title-row {
 		display: flex;
 		align-items: center;
@@ -2216,6 +2206,9 @@ tokens
 	.resizer {
 		flex: 0 0 14px;
 		width: 14px;
+		padding: 0;
+		border: none;
+		background: transparent;
 		cursor: col-resize;
 		position: relative;
 		display: flex;
@@ -2239,27 +2232,6 @@ tokens
 		opacity: 0.85;
 		width: 6px;
 	}
-	.actions {
-		display: flex;
-		gap: 8px;
-		flex-wrap: wrap;
-		justify-content: space-between;
-		margin: 0;
-	}
-	.btn {
-		flex: 1 1 180px;
-		display: inline-flex;
-		align-items: center;
-		gap: 8px;
-		border: 4px solid var(--outline);
-		background: transparent;
-		color: var(--ink);
-		padding: 8px 12px;
-		border-radius: 10px;
-		cursor: pointer;
-		scale: 1;
-	}
-
 	.table {
 		height: auto;
 		min-height: var(--frame-height);
