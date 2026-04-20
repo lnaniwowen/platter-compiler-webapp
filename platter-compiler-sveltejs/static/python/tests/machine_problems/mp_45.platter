@@ -1,172 +1,190 @@
 ## 
-Matrix Operations
-- Matrix Addition
-- Matrix Subtraction
-- Matrix Transpose
+Military Time to Standard Time and vice versa
 ##
-
-piece[] of arrayA;
-piece[] of arrayB;
-piece[] of arrayC;
-piece[] of arrayTemp;
-piece of arraySize;
-
-
-prepare piece of addMatrix(piece[] of a, piece[] of b){
-	piece of i;
-    piece of ans;
-	pass(i = 0; i += 1; i < arraySize){
-    	ans = a[i] + b[i];
-        append(arrayC, ans);
+prepare chars of militaryToStandard(piece of hours, piece of mins) {
+    chars of result = "", period = "AM", formattedMins = "";
+    piece of displayHours = hours;
+    
+    check(hours >= 12) {
+        period = "PM";
+        check(hours > 12) {
+            displayHours = hours - 12;
+        }
+    } instead {
+        check(hours == 0) {
+            displayHours = 12;
+        }
     }
     
-    bill("Sum matrix: [");
-    pass(i = 0; i += 1; i < arraySize){
-		bill(tochars(arrayC[i])); 
-        check (i == arraySize - 1){ bill("]"); }
-        instead { bill(", "); }
-	}
-#     bill("]");
-	serve 0;
-}
-
-prepare piece of subMatrix(piece[] of a, piece[] of b){
-	piece of i;
-    piece of ans;
-	pass(i = 0; i += 1; i < arraySize){
-    	ans = a[i] - b[i];
-        append(arrayC, ans);
+    check(mins < 10) {
+        formattedMins = "0" + tochars(mins);
+    } instead {
+        formattedMins = tochars(mins);
     }
     
-    bill("Difference matrix: [");
-    pass(i = 0; i += 1; i < arraySize){
-		bill(tochars(arrayC[i])); 
-        check (i == arraySize - 1){ bill("]"); }
-        instead { bill(", "); }
-	}
-	serve 0;
+    result = tochars(displayHours) + ":" + formattedMins + " " + period;
+    serve result;
 }
 
-prepare piece of transposeMatrix(piece[] of a, piece[] of b){
-	piece of i;
-    arrayTemp = arrayA;
-    arrayA = arrayB;
-    arrayB = arrayTemp;
-    bill("Matrix Swapped!");
-	serve 0;
+prepare chars of standardToMilitary(piece of hours, piece of mins, chars of period) {
+    chars of result = "", formattedHours = "", formattedMins = "";
+    piece of militaryHours = hours;
+    
+    check(period == "PM") {
+        check(hours != 12) {
+            militaryHours = hours + 12;
+        }
+    } instead {
+        check(hours == 12) {
+            militaryHours = 0;
+        }
+    }
+    
+    check(militaryHours < 10) {
+        formattedHours = "0" + tochars(militaryHours);
+    } instead {
+        formattedHours = tochars(militaryHours);
+    }
+    
+    check(mins < 10) {
+        formattedMins = "0" + tochars(mins);
+    } instead {
+        formattedMins = tochars(mins);
+    }
+    
+    result = formattedHours + formattedMins;
+    serve result;
 }
 
-start(){
-      piece of i;
-      piece of input;
-      piece of element;
-
-      bill("Enter array size: ");
-      arraySize = topiece(take());
-		
-      pass(i = 0; i += 1; i < arraySize){
-          bill("Enter element for array A at index [" + tochars(i) + "]: ");
-          element = topiece(take());
-          append(arrayA, element);   
-      }
-      
-      pass(i = 0; i += 1; i < arraySize){
-          bill("Enter element for array B at index [" + tochars(i) + "]: ");
-          element = topiece(take());
-          append(arrayB, element);   
-      }
-
-      bill("\n");
-      order {
-      		bill("Matrix Operations\n");
-            bill("\t1. Matrix Addition\n");
-            bill("\t2. Matrix Subtraction\n");
-            bill("\t3. Matrix Transpose\n");
-            bill("\t4. Exit\n");
-          bill("Enter choice: ");
-          input = topiece(take());
-
-          menu(input){
-              choice 1:
-                  bill("Matrix Addition\n");
-                  addMatrix(arrayA, arrayB);
-                  stop;
-              choice 2:
-                  bill("Matrix Subtraction\n");
-                  subMatrix(arrayA, arrayB);
-                  stop;
-              choice 3:
-                  bill("Matrix Transpose\n");
-                  transposeMatrix(arrayA, arrayB);
-                  stop;
-              choice 4:
-                  bill("Menu exited\n");
-                  stop;
-              usual:
-                  bill("Not a valid choice!\n");
-                  stop;
-          }
-          bill("\n\n");
-      } repeat(input != 4);
+start() {
+    chars of input = "", timeInput = "", period = "";
+    piece of hours = 0, mins = 0;
+    flag of isValidInput = down, continueLoop = up;
+    chars of result = "";
+    chars of hourStr;
+    chars of minStr;
+    
+    order {
+        bill("\n=== Military Time Converter ===\n");
+        bill("[1] Military to Standard Time\n");
+        bill("[2] Standard to Military Time\n");
+        bill("[3] Exit\n");
+        bill("Enter your choice (1/2/3): ");
+        
+        input = take();
+        
+        menu(input) {
+            choice "1": 
+                bill("\nEnter military time (HHMM format, e.g., 1330): ");
+                timeInput = take();
+                
+                hourStr = copy(timeInput, 1, 2);
+                minStr = copy(timeInput, 3, 4);
+                hours = topiece(hourStr);
+                mins = topiece(minStr);
+                
+                isValidInput = down;
+                check(hours >= 0 and hours <= 24 and mins >= 0 and mins <= 59) {
+                    isValidInput = up;
+                }
+                
+                check(isValidInput == up) {
+                    result = militaryToStandard(hours, mins);
+                    bill("Standard Time: " + result + "\n");
+                } instead {
+                    bill("Invalid time input. Hours must be 0-24, minutes 0-59.\n");
+                }
+            	stop;
+            
+            choice "2": 
+                bill("\nEnter standard time:\n");
+                
+                isValidInput = down;
+                order {
+                    bill("Hours (1-12): ");
+                    hours = topiece(take());
+                    check(hours >= 1 and hours <= 12) {
+                        isValidInput = up;
+                    } instead {
+                        bill("Invalid hours. Please enter 1-12.\n");
+                    }
+                } repeat(isValidInput == down);
+                
+                isValidInput = down;
+                order {
+                    bill("Minutes (0-59): ");
+                    mins = topiece(take());
+                    check(mins >= 0 and mins <= 59) {
+                        isValidInput = up;
+                    } instead {
+                        bill("Invalid minutes. Please enter 0-59.\n");
+                    }
+                } repeat(isValidInput == down);
+                
+                isValidInput = down;
+                order {
+                    bill("Period (AM/PM): ");
+                    period = take();
+                    check(period == "AM" or period == "PM") {
+                        isValidInput = up;
+                    } instead {
+                        bill("Invalid period. Please enter AM or PM.\n");
+                    }
+                } repeat(isValidInput == down);
+                
+                result = standardToMilitary(hours, mins, period);
+                bill("Military Time: " + result + "\n");
+            	stop;
+            
+            choice "3": 
+                bill("\nProgram Exited!\n");
+                continueLoop = down;
+            	stop;
+            
+            usual: 
+                bill("Invalid choice.\n");
+            	stop;
+        }
+    } repeat(continueLoop == up);
 }
 --end
-2
 1
+1350
 2
+12
+12
+am
+AM
 3
-4
-1
-2
-3
-1
-4
 --end
-Enter array size: 2
-Enter element for array A at index [0]: 1
-Enter element for array A at index [1]: 2
-Enter element for array B at index [0]: 3
-Enter element for array B at index [1]: 4
 
-Matrix Operations
-	1. Matrix Addition
-	2. Matrix Subtraction
-	3. Matrix Transpose
-	4. Exit
-Enter choice: 1
-Matrix Addition
-Sum matrix: [4, 6]
+=== Military Time Converter ===
+[1] Military to Standard Time
+[2] Standard to Military Time
+[3] Exit
+Enter your choice (1/2/3): 1
 
-Matrix Operations
-	1. Matrix Addition
-	2. Matrix Subtraction
-	3. Matrix Transpose
-	4. Exit
-Enter choice: 2
-Matrix Subtraction
-Difference matrix: [-2, -2]
+Enter military time (HHMM format, e.g., 1330): 1350
+Standard Time: 1:50 PM
 
-Matrix Operations
-	1. Matrix Addition
-	2. Matrix Subtraction
-	3. Matrix Transpose
-	4. Exit
-Enter choice: 3
-Matrix Transpose
-Matrix Swapped!
+=== Military Time Converter ===
+[1] Military to Standard Time
+[2] Standard to Military Time
+[3] Exit
+Enter your choice (1/2/3): 2
 
-Matrix Operations
-	1. Matrix Addition
-	2. Matrix Subtraction
-	3. Matrix Transpose
-	4. Exit
-Enter choice: 1
-Matrix Addition
-Sum matrix: [4, 6]
+Enter standard time:
+Hours (1-12): 12
+Minutes (0-59): 12
+Period (AM/PM): am
+Invalid period. Please enter AM or PM.
+Period (AM/PM): AM
+Military Time: 0012
 
-Matrix Operations
-	1. Matrix Addition
-	2. Matrix Subtraction
-	3. Matrix Transpose
-	4. Exit
-Enter choice: 4
-Menu exited
+=== Military Time Converter ===
+[1] Military to Standard Time
+[2] Standard to Military Time
+[3] Exit
+Enter your choice (1/2/3): 3
+
+Program Exited!
