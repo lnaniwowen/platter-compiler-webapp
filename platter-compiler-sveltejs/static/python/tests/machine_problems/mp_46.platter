@@ -196,7 +196,12 @@ start(){
 								bill("Invalid name length. Minimum 3 and maximum 25 characters.\n");
 							}
 						}
-						records[i]:name = inputName;
+						newRecord = [
+							name = inputName;
+							studentNumber = records[i]:studentNumber;
+							course = records[i]:course;
+						];
+						records[i] = newRecord;
 						bill("Record updated successfully.\n");
 					} alt(editChoice == 2){
 						repeat(up){
@@ -208,7 +213,12 @@ start(){
 								bill("Invalid course length. Minimum 3 and maximum 25 characters.\n");
 							}
 						}
-						records[i]:course = inputCourse;
+						newRecord = [
+							name = records[i]:name;
+							studentNumber = records[i]:studentNumber;
+							course = inputCourse;
+						];
+						records[i] = newRecord;
 						bill("Record updated successfully.\n");
 					} alt(editChoice == 3){
 						repeat(up){
@@ -230,8 +240,12 @@ start(){
 								bill("Invalid course length. Minimum 3 and maximum 25 characters.\n");
 							}
 						}
-						records[i]:name = inputName;
-						records[i]:course = inputCourse;
+						newRecord = [
+							name = inputName;
+							studentNumber = records[i]:studentNumber;
+							course = inputCourse;
+						];
+						records[i] = newRecord;
 						bill("Record updated successfully.\n");
 					} alt(editChoice == 4){
 						bill("Edit cancelled.\n");
