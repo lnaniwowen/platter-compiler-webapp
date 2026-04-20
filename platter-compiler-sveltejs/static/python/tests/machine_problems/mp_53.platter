@@ -1,0 +1,464 @@
+table of ClientRecord = [
+	chars of name;
+	piece of accountNumber;
+	chars of date;
+	piece of balance;
+	piece of dailyDepositTotal;
+	piece of dailyWithdrawalTotal;
+	piece of depositCount;
+	piece of withdrawalCount;
+	piece of inquiryCount;
+	flag of done;
+];
+
+ClientRecord[] of clients = [];
+
+piece of clientCount = 0;
+piece of registeredClients = 0;
+
+prepare flag of isWholeNumber(chars of text) {
+	piece of i = 1;
+	chars of c = "";
+
+	check(text == "") {
+		serve down;
+	}
+
+	c = copy(text, i, i);
+	repeat(c != "") {
+		check(c < "0" or c > "9") {
+			serve down;
+		}
+
+		i += 1;
+		c = copy(text, i, i);
+	}
+
+	serve up;
+}
+
+prepare piece of findClientIndex(piece of accountNumber) {
+	piece of i = 0;
+
+	pass(i = 0; i += 1; i < registeredClients) {
+		check(clients[i]:accountNumber == accountNumber) {
+			serve i;
+		}
+	}
+
+	serve registeredClients;
+}
+
+prepare piece of displaySummary(piece of idx) {
+	bill("\n=== CLIENT TRANSACTION SUMMARY ===\n");
+	bill("Client Name: " + clients[idx]:name + "\n");
+	bill("Account Number: " + tochars(clients[idx]:accountNumber) + "\n");
+	bill("Date: " + clients[idx]:date + "\n");
+	bill("Deposit Transactions: " + tochars(clients[idx]:depositCount) + "\n");
+	bill("Total Deposited: " + tochars(clients[idx]:dailyDepositTotal) + "\n");
+	bill("Withdrawal Transactions: " + tochars(clients[idx]:withdrawalCount) + "\n");
+	bill("Total Withdrawn: " + tochars(clients[idx]:dailyWithdrawalTotal) + "\n");
+	bill("Balance Inquiries: " + tochars(clients[idx]:inquiryCount) + "\n");
+	bill("Current Balance: " + tochars(clients[idx]:balance) + "\n");
+	bill("==================================\n");
+	serve 0;
+}
+
+prepare piece of displayClientChoices(flag of lockDoneClients) {
+	piece of i = 0;
+
+	pass(i = 0; i += 1; i < clientCount) {
+		check(lockDoneClients == up and clients[i]:done == up) {
+			bill(tochars(i + 1) + ". " + clients[i]:name + " (Account: " + tochars(clients[i]:accountNumber) + ") - LOCKED\n");
+		} instead {
+			bill(tochars(i + 1) + ". " + clients[i]:name + " (Account: " + tochars(clients[i]:accountNumber) + ")\n");
+		}
+	}
+
+	serve 0;
+}
+
+prepare piece of processClientTransactions(piece of idx, piece of transactionsPerClient) {
+	piece of completed = 0;
+	piece of amount = 0;
+	piece of rawInput = 0;
+
+	bill("\n==================================\n");
+	bill("Processing Client: " + clients[idx]:name + "\n");
+	bill("Account Number: " + tochars(clients[idx]:accountNumber) + "\n");
+	bill("Date: " + clients[idx]:date + "\n");
+	bill("==================================\n");
+
+	repeat(completed < transactionsPerClient) {
+		bill("\nTransactions Completed: " + tochars(completed) + " / " + tochars(transactionsPerClient) + "\n");
+		bill("1. Deposit\n");
+		bill("2. Withdraw\n");
+		bill("3. Balance Inquiry\n");
+		bill("4. Display Transaction Summary\n");
+		bill("Enter choice: ");
+
+		rawInput = topiece(take());
+		check(isWholeNumber(topiece(rawInput))) {
+			rawInput = topiece(rawInput);
+		} instead {
+			rawInput = 0;
+		}
+
+		menu(rawInput) {
+			choice 1:
+				bill("Enter deposit amount: ");
+				rawInput = topiece(take());
+
+				check(isWholeNumber(topiece(rawInput))) {
+					amount = topiece(rawInput);
+
+					check(amount <= 0) {
+						bill("Deposit amount must be greater than 0\n");
+					} instead {
+						check(clients[idx]:dailyDepositTotal + amount > 50000) {
+							bill("Daily deposit limit exceeded. Maximum total deposit per day is 50000\n");
+						} instead {
+							clients[idx]:balance += amount;
+							clients[idx]:dailyDepositTotal += amount;
+							clients[idx]:depositCount += 1;
+							completed += 1;
+							bill("Deposit successful\n");
+						}
+					}
+				} instead {
+					bill("Invalid amount. Enter digits only\n");
+				}
+				stop;
+
+			choice 2:
+				bill("Enter withdrawal amount: ");
+				rawInput = topiece(take());
+
+				check(isWholeNumber(topiece(rawInput))) {
+					amount = topiece(rawInput);
+
+					check(amount <= 0) {
+						bill("Withdrawal amount must be greater than 0\n");
+					} instead {
+						check(clients[idx]:dailyWithdrawalTotal + amount > 20000) {
+							bill("Daily withdrawal limit exceeded. Maximum total withdrawal per day is 20000\n");
+						} instead {
+							check(amount > clients[idx]:balance) {
+								bill("Insufficient balance. Withdrawal must be less than or equal to balance\n");
+							} instead {
+								clients[idx]:balance -= amount;
+								clients[idx]:dailyWithdrawalTotal += amount;
+								clients[idx]:withdrawalCount += 1;
+								completed += 1;
+								bill("Withdrawal successful\n");
+							}
+						}
+					}
+				} instead {
+					bill("Invalid amount. Enter digits only\n");
+				}
+				stop;
+
+			choice 3:
+				clients[idx]:inquiryCount += 1;
+				completed += 1;
+				bill("Current balance: " + tochars(clients[idx]:balance) + "\n");
+				stop;
+
+			choice 4:
+				displaySummary(idx);
+				stop;
+
+			usual:
+				bill("Invalid menu choice\n");
+		}
+	}
+
+	bill("\nCompleted required transactions for account " + tochars(clients[idx]:accountNumber) + "\n");
+	displaySummary(idx);
+	serve 0;
+}
+
+start() {
+	piece of transactionsPerClient = 0;
+	piece of i = 0;
+	piece of accountNumber = 0;
+	piece of initialBalance = 0;
+	piece of firstClientNumber = 0;
+	piece of currentClientIndex = 0;
+	piece of completedClients = 0;
+    piece of firstClientDec = 0;
+	chars of clientName = "";
+	chars of clientDate = "";
+	piece of rawInput = 0;
+	ClientRecord of newClient;
+
+	order {
+		bill("Enter number of clients (1 to 5): ");
+		rawInput = topiece(take());
+
+		check(isWholeNumber(topiece(rawInput))) {
+			clientCount = topiece(rawInput);
+		} instead {
+			clientCount = 0;
+			bill("Invalid input. Enter digits only\n");
+		}
+
+		check(clientCount > 5) {
+			bill("Maximum number of clients is 5\n");
+		}
+	} repeat(clientCount <= 0 or clientCount > 5);
+
+	order {
+		bill("Enter number of transactions per client (minimum 5): ");
+		rawInput = topiece(take());
+
+		check(isWholeNumber(topiece(rawInput))) {
+			transactionsPerClient = topiece(rawInput);
+		} instead {
+			transactionsPerClient = 0;
+			bill("Invalid input. Enter digits only\n");
+		}
+
+		check(transactionsPerClient > 0 and transactionsPerClient < 5) {
+			bill("Each client must have at least 5 transactions per day\n");
+		}
+	} repeat(transactionsPerClient < 5);
+
+	pass(i = 0; i += 1; i < clientCount) {
+		bill("\nEnter details for client #" + tochars(i + 1) + "\n");
+
+		bill("Client name: ");
+		clientName = take();
+
+		order {
+			bill("Client account number: ");
+			rawInput = topiece(take());
+
+			check(isWholeNumber(topiece(rawInput))) {
+				accountNumber = topiece(rawInput);
+
+				check(accountNumber <= 0) {
+					bill("Account number must be greater than 0\n");
+				}
+
+				check(findClientIndex(accountNumber) < registeredClients) {
+					accountNumber = 0;
+					bill("Account number already exists. Enter a unique account number\n");
+				}
+			} instead {
+				accountNumber = 0;
+				bill("Invalid input. Enter digits only\n");
+			}
+		} repeat(accountNumber <= 0);
+
+		bill("Date (YYYY-MM-DD): ");
+		clientDate = take();
+
+		order {
+			bill("Initial balance: ");
+			rawInput = topiece(take());
+
+			check(isWholeNumber(topiece(rawInput))) {
+				initialBalance = topiece(rawInput);
+				check(initialBalance < 0) {
+					bill("Initial balance cannot be negative\n");
+				}
+			} instead {
+				initialBalance = -1;
+				bill("Invalid input. Enter digits only\n");
+			}
+		} repeat(initialBalance < 0);
+
+		newClient = [
+			name = clientName;
+			accountNumber = accountNumber;
+			date = clientDate;
+			balance = initialBalance;
+			dailyDepositTotal = 0;
+			dailyWithdrawalTotal = 0;
+			depositCount = 0;
+			withdrawalCount = 0;
+			inquiryCount = 0;
+			done = down;
+		];
+
+		clients = append(clients, newClient);
+		registeredClients += 1;
+	}
+
+	bill("\nChoose which client will transact first\n");
+	displayClientChoices(down);
+
+	order {
+		bill("Enter client number to start (1 to " + tochars(clientCount) + "): ");
+		rawInput = topiece(take());
+
+		check(isWholeNumber(topiece(rawInput))) {
+			firstClientNumber = topiece(rawInput);
+		} instead {
+			firstClientNumber = 0;
+			bill("Invalid input. Enter digits only\n");
+		}
+
+		check(firstClientNumber < 1 or firstClientNumber > clientCount) {
+			bill("Please select a valid client number\n");
+		}
+	} repeat(firstClientNumber < 1 or firstClientNumber > clientCount);
+
+	bill("\n=== STARTING CLIENT TRANSACTIONS ===\n");
+	completedClients = 0;
+	repeat(completedClients < clientCount) {
+		currentClientIndex = firstClientNumber - 1;
+		processClientTransactions(currentClientIndex, transactionsPerClient);
+		clients[currentClientIndex]:done = up;
+		completedClients += 1;
+
+		check(completedClients < clientCount) {
+			bill("\nChoose next client to transact (done clients are locked)\n");
+			displayClientChoices(up);
+
+			order {
+				bill("Enter next client number (1 to " + tochars(clientCount) + "): ");
+				rawInput = topiece(take());
+
+				check(isWholeNumber(topiece(rawInput))) {
+					firstClientNumber = topiece(rawInput);
+				} instead {
+					firstClientNumber = 0;
+					bill("Invalid input. Enter digits only\n");
+				}
+
+				check(firstClientNumber >= 1 and firstClientNumber <= clientCount) {
+                	firstClientDec = firstClientNumber - 1;
+					check(clients[firstClientDec]:done == up) {
+						firstClientNumber = 0;
+						bill("Client already completed and is locked\n");
+					}
+				}
+
+				check(firstClientNumber < 1 or firstClientNumber > clientCount) {
+					bill("Please select a valid client number\n");
+				}
+			} repeat(firstClientNumber < 1 or firstClientNumber > clientCount);
+		}
+	}
+
+	bill("\n=== ALL CLIENTS SUMMARY ===\n");
+	pass(i = 0; i += 1; i < clientCount) {
+		displaySummary(i);
+	}
+
+	bill("Simulation complete\n");
+}
+--end
+1
+5
+Alice
+1001
+2026-04-21
+1000
+1
+1
+200
+2
+100
+3
+1
+300
+2
+50
+--end
+Enter number of clients (1 to 5): 1
+Enter number of transactions per client (minimum 5): 5
+
+Enter details for client #1
+Client name: Alice
+Client account number: 1001
+Date (YYYY-MM-DD): 2026-04-21
+Initial balance: 1000
+
+Choose which client will transact first
+1. Alice (Account: 1001)
+Enter client number to start (1 to 1): 1
+
+=== STARTING CLIENT TRANSACTIONS ===
+
+==================================
+Processing Client: Alice
+Account Number: 1001
+Date: 2026-04-21
+==================================
+
+Transactions Completed: 0 / 5
+1. Deposit
+2. Withdraw
+3. Balance Inquiry
+4. Display Transaction Summary
+Enter choice: 1
+Enter deposit amount: 200
+Deposit successful
+
+Transactions Completed: 1 / 5
+1. Deposit
+2. Withdraw
+3. Balance Inquiry
+4. Display Transaction Summary
+Enter choice: 2
+Enter withdrawal amount: 100
+Withdrawal successful
+
+Transactions Completed: 2 / 5
+1. Deposit
+2. Withdraw
+3. Balance Inquiry
+4. Display Transaction Summary
+Enter choice: 3
+Current balance: 1100
+
+Transactions Completed: 3 / 5
+1. Deposit
+2. Withdraw
+3. Balance Inquiry
+4. Display Transaction Summary
+Enter choice: 1
+Enter deposit amount: 300
+Deposit successful
+
+Transactions Completed: 4 / 5
+1. Deposit
+2. Withdraw
+3. Balance Inquiry
+4. Display Transaction Summary
+Enter choice: 2
+Enter withdrawal amount: 50
+Withdrawal successful
+
+Completed required transactions for account 1001
+
+=== CLIENT TRANSACTION SUMMARY ===
+Client Name: Alice
+Account Number: 1001
+Date: 2026-04-21
+Deposit Transactions: 2
+Total Deposited: 500
+Withdrawal Transactions: 2
+Total Withdrawn: 150
+Balance Inquiries: 1
+Current Balance: 1350
+==================================
+
+=== ALL CLIENTS SUMMARY ===
+
+=== CLIENT TRANSACTION SUMMARY ===
+Client Name: Alice
+Account Number: 1001
+Date: 2026-04-21
+Deposit Transactions: 2
+Total Deposited: 500
+Withdrawal Transactions: 2
+Total Withdrawn: 150
+Balance Inquiries: 1
+Current Balance: 1350
+==================================
+Simulation complete
