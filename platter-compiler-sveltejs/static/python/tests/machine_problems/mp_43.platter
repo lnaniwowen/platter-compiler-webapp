@@ -1,0 +1,58 @@
+##
+Emirp Number: Is a prime number whose reverse is also a prime
+e.g. 13 -> 31 both are prime
+Tell whether a number is n Emirp Number
+##
+
+prepare piece of reverseNum(piece of x){
+    piece of rev = 0;
+
+    repeat(x > 0){
+        rev = (rev * 10) + (x % 10);
+        x = x / 10;
+    }
+
+    serve rev;
+}
+
+prepare flag of isPrime(piece of n){
+    piece of i;
+
+    check(n <= 1){
+        serve down;
+    }
+
+    i = 2;
+
+    repeat(i < n){
+        check(n % i == 0){
+            serve down;
+        }
+        i = i + 1;
+    }
+
+    serve up;
+}
+
+start(){
+    piece of num, rev;
+
+    bill("Enter a number: ");
+    num = topiece(take());
+
+    rev = reverseNum(num);
+
+    bill(tochars(num) + " reversed is " + tochars(rev) + "\n");
+
+    check(isPrime(num) and isPrime(rev) and num != rev){
+        bill(tochars(num) + " is an Emirp Number\n");
+    } instead {
+        bill(tochars(num) + " is not an Emirp Number\n");
+    }
+}
+--end
+17
+--end
+Enter a number: 17
+17 reversed is 71
+17 is an Emirp Number

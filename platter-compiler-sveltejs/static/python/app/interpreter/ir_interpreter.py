@@ -134,6 +134,9 @@ class TACInterpreter:
         self.param_stack: List[Any] = []   # params pushed before a CALL
         self.global_frame = Frame("__global__")
         self.current_frame: Frame = self.global_frame
+        self._evaluating_for_bill: bool = False  # Phase 1: skip overflow checks during bill evaluation
+        self.exit_code: Any = 0                   # Phase 3: exit code from serve statements
+        self.exit_code_type: str = "piece"
 
     # ── Public entry point ─────────────────────────────────────────────────────
 
@@ -166,6 +169,7 @@ class TACInterpreter:
                 "paused": False,
                 "error": self._translate_error(str(e)),
                 "output": "".join(self.output_lines),
+                "terminate_message": "Program terminated with error",
                 "stdin_consumed": self._stdin_idx,
             }
         except InterpreterError as e:
@@ -174,6 +178,7 @@ class TACInterpreter:
                 "paused": False,
                 "error": self._translate_error(str(e)),
                 "output": "".join(self.output_lines),
+                "terminate_message": "Program terminated with error",
                 "stdin_consumed": self._stdin_idx,
             }
 
@@ -181,6 +186,7 @@ class TACInterpreter:
             "success": True,
             "paused": False,
             "output": "".join(self.output_lines),
+            "exit_message": f"\nProgram ended with exit code {self._format_exit_code_display()}",
             "stdin_consumed": self._stdin_idx,
             "globals": {k: v for k, v in self.global_frame.vars.items()
                         if not k.startswith("t")},  # hide temps
@@ -310,8 +316,12 @@ class TACInterpreter:
 
         elif t is TACReturn:
             val = self._load(instr.value) if instr.value else None
-            
+
             if not self.call_stack:
+                # Phase 3: returning from the outermost recipe — capture typed exit code
+                if val is not None:
+                    self.exit_code = val
+                    self.exit_code_type = self._platter_type_descriptor(val)
                 self.pc = len(self.instructions)
             else:
                 saved = self.call_stack.pop()
@@ -347,7 +357,8 @@ class TACInterpreter:
             if not args:
                 return 0
             try:
-                return int(float(args[0]))
+                result = int(float(args[0]))
+                return result
             except (ValueError, TypeError):
                 raise InterpreterError(
                     f"topiece(): cannot convert {self._platter_type(args[0])} value '{args[0]}' to piece"
@@ -357,7 +368,8 @@ class TACInterpreter:
             if not args:
                 return 0.0
             try:
-                return float(args[0])
+                result = float(args[0])
+                return result
             except (ValueError, TypeError):
                 raise InterpreterError(
                     f"tosip(): cannot convert {self._platter_type(args[0])} value '{args[0]}' to sip"
@@ -365,11 +377,16 @@ class TACInterpreter:
 
         # ── I/O ──────────────────────────────────────────────────────────
         elif name == "bill":
-            # bill(chars_value) → outputs text, serves ""
-            text = str(args[0]) if args else ""
-            # Process escape sequences and remove quotes
-            text = self._process_string_literal(text)
-            self.output_lines.append(text)
+            # Phase 1: bill(chars_value) → outputs text, serves ""
+            # Flag allows bill to print any value without overflow errors
+            self._evaluating_for_bill = True
+            try:
+                text = str(args[0]) if args else ""
+                # Process escape sequences and remove quotes
+                text = self._process_string_literal(text)
+                self.output_lines.append(text)
+            finally:
+                self._evaluating_for_bill = False
             return ""
 
         elif name == "take":
@@ -393,6 +410,7 @@ class TACInterpreter:
             result = 1
             for i in range(2, n + 1):
                 result *= i
+            # No overflow check — limits enforced at ingredient storage time
             return result
 
         elif name == "cut":
@@ -445,6 +463,17 @@ class TACInterpreter:
             # matches(array|table, array|table) → flag (up/down as bool)
             return args[0] == args[1]
 
+        # ── Math functions (no overflow check — limits enforced at storage time) ─
+        elif name == "pow":
+            # pow(base, exp) → piece
+            result = args[0] ** args[1]
+            return result
+
+        elif name == "sqrt":
+            # sqrt(piece) → sip, 7 fractional digits
+            result = round(args[0] ** 0.5, 7)
+            return result
+
         # ── Generic lambda-based builtins ────────────────────────────────
         else:
             if fn is None:
@@ -469,6 +498,46 @@ class TACInterpreter:
         if isinstance(val, dict):
             return "table"
         return type(val).__name__
+
+    def _platter_type_descriptor(self, val: Any) -> str:
+        """Return a richer Platter type descriptor for output formatting."""
+        if isinstance(val, list):
+            if not val:
+                return "array[]"
+            first_type = self._platter_type(val[0])
+            if all(self._platter_type(item) == first_type for item in val):
+                return f"{first_type}[]"
+            return "array"
+        if isinstance(val, dict):
+            return "table(obj)"
+        return self._platter_type(val)
+
+    def _format_platter_value(self, val: Any) -> str:
+        """Format a runtime value using Platter-native literals."""
+        if isinstance(val, bool):
+            return "up" if val else "down"
+        if isinstance(val, list):
+            return "[" + ", ".join(self._format_platter_value(item) for item in val) + "]"
+        if isinstance(val, dict):
+            parts = []
+            for key, item in val.items():
+                parts.append(f"{key}: {self._format_platter_value(item)}")
+            return "{" + ", ".join(parts) + "}"
+        if isinstance(val, str):
+            return val
+        return str(val)
+
+    def _format_exit_code_display(self) -> str:
+        """Format top-level serve output without coercing values to integers."""
+        exit_type = self.exit_code_type or self._platter_type_descriptor(self.exit_code)
+        formatted_value = self._format_platter_value(self.exit_code)
+        if exit_type in ("piece", "sip"):
+            return formatted_value
+        if exit_type in ("flag", "chars"):
+            return formatted_value
+        if exit_type.endswith("[]") or exit_type.startswith("table") or exit_type == "array":
+            return f"{exit_type} {formatted_value}"
+        return f"{exit_type} {formatted_value}"
 
     @staticmethod
     def _translate_error(msg: str) -> str:
@@ -525,6 +594,14 @@ class TACInterpreter:
         return self.current_frame.get(name)
 
     def _store(self, name: str, value: Any):
+        # Phase 2: validate numeric limits before storing to a named ingredient.
+        # Skip internal temp variables (they begin with 't') to allow large
+        # intermediate values to exist during expression evaluation.
+        if not name.startswith("t"):
+            if isinstance(value, int) and not isinstance(value, bool):
+                self._validate_piece_storage(value, name)
+            elif isinstance(value, float):
+                self._validate_sip_storage(value, name)
         self.current_frame.set(name, value)
 
     # ── Operator evaluation ────────────────────────────────────────────────────
@@ -551,13 +628,90 @@ class TACInterpreter:
         if op not in ops:
             raise InterpreterError(f"Unknown binary operator '{op}'")
         try:
-            return ops[op](left, right)
+            result = ops[op](left, right)
+            # Overflow is NOT checked here — arithmetic results may be large
+            # (e.g. for bill expressions). Limits are enforced in _store() when
+            # the value is actually assigned to a named ingredient.
+            return result
         except ZeroDivisionError:
             raise InterpreterError("Division by zero")
 
+    def _check_numeric_overflow(self, result: Any, left: Any, right: Any, op: str):
+        """
+        Check if arithmetic operation result exceeds numeric limits.
+        piece: max 15 digits (±999,999,999,999,999)
+        sip: max 15 non-fractional digits + 7 fractional digits
+        """
+        # Phase 1: skip overflow checks when evaluating expressions for bill statements
+        if self._evaluating_for_bill:
+            return
+        # Determine result type based on operands
+        left_is_int = isinstance(left, int) and not isinstance(left, bool)
+        right_is_int = isinstance(right, int) and not isinstance(right, bool)
+        left_is_float = isinstance(left, float)
+        right_is_float = isinstance(right, float)
+        
+        # If both operands are integers, result type is piece
+        if left_is_int and right_is_int and isinstance(result, int):
+            self._check_piece_overflow(result)
+        # If either operand is float, result type is sip
+        elif (left_is_float or right_is_float) and isinstance(result, float):
+            self._check_sip_overflow(result)
+        # Integer division of piece/piece produces piece
+        elif op == "/" and left_is_int and right_is_int and isinstance(result, int):
+            self._check_piece_overflow(result)
+    
+    def _check_piece_overflow(self, value: int):
+        """Check if piece (integer) exceeds 15 digits"""
+        # Max 15 digits: ±999,999,999,999,999
+        PIECE_MAX = 999_999_999_999_999
+        if abs(value) > PIECE_MAX:
+            raise InterpreterError("piece overflow")
+    
+    def _check_sip_overflow(self, value: float):
+        """Check if sip (float) exceeds 15 non-fractional + 7 fractional digits"""
+        # Max non-fractional digits: 15 (±999,999,999,999,999)
+        # Max fractional digits: 7
+        # Due to floating-point precision issues, check digit count instead of magnitude
+        
+        # Format with 7 decimal places to get proper representation
+        value_str = f"{abs(value):.7f}"
+        
+        # Count non-fractional digits
+        if '.' in value_str:
+            integer_part = value_str.split('.')[0]
+        else:
+            integer_part = value_str
+        
+        non_fractional_digits = len(integer_part)
+        
+        if non_fractional_digits > 15:
+            raise InterpreterError("sip overflow")
+
+    # ── Phase 2: Storage-time validation helpers ───────────────────────────────
+
+    def _validate_piece_storage(self, value: int, var_name: str = ""):
+        """Validate piece ingredient: max 15 digits (±999,999,999,999,999)"""
+        PIECE_MAX = 999_999_999_999_999
+        if abs(value) > PIECE_MAX:
+            raise InterpreterError("Value exceeds range for type piece")
+
+    def _validate_sip_storage(self, value: float, var_name: str = ""):
+        """Validate sip ingredient: max 15 non-fractional + 7 fractional digits"""
+        value_str = f"{abs(value):.7f}"
+        if '.' in value_str:
+            integer_part = value_str.split('.')[0]
+        else:
+            integer_part = value_str
+        non_fractional_digits = len(integer_part)
+        if non_fractional_digits > 15:
+            raise InterpreterError("Value exceeds range for type sip")
+
     def _eval_unary(self, op: str, val: Any) -> Any:
         if op == "-":
-            return -val
+            result = -val
+            # No overflow check — limits enforced at ingredient storage time
+            return result
         if op in ("not", "!"):
             return not self._to_bool(val)
         raise InterpreterError(f"Unknown unary operator '{op}'")
@@ -571,7 +725,10 @@ class TACInterpreter:
         }
         if target_type not in casts:
             raise InterpreterError(f"Unknown cast type '{target_type}'")
-        return casts[target_type](val)
+        
+        result = casts[target_type](val)
+        # No overflow check — limits enforced at ingredient storage time
+        return result
 
     def _to_bool(self, val: Any) -> bool:
         if isinstance(val, bool):

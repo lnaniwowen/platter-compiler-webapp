@@ -1,0 +1,58 @@
+##
+Neon Number: A neon number is a number whose square's digits sum up to the number itself.
+e.g. 9^2 = 81 = 8+1 = 9
+Tell whether a number is a Neon Number
+##
+
+start(){
+    piece of num, sqr, temp, rem, sum;
+    piece of rev, digit;
+    flag of first;
+
+    bill("Enter a number: ");
+    num = topiece(take());
+
+    sqr = num * num;
+    temp = sqr;
+    sum = 0;
+    rev = 0;
+    first = up;
+
+    bill(tochars(num) + " = " + tochars(num) + "^2 = " + tochars(sqr) + " = ");
+
+    repeat(temp > 0){
+        rem = temp % 10;
+        rev = (rev * 10) + rem;
+        temp = temp / 10;
+    }
+
+    
+    repeat(rev > 0){
+
+        digit = rev % 10;
+        sum = sum + digit;
+
+        check(not first){
+            bill("+");
+        }
+
+        bill(tochars(digit));
+
+        first = down;
+        rev = rev / 10;
+    }
+
+    bill(" = " + tochars(sum) + "\n");
+
+    check(sum == num){
+        bill(tochars(num) + " is a Neon Number\n");
+    } instead {
+        bill(tochars(num) + " is not a Neon Number\n");
+    }
+}
+--end
+9
+--end
+Enter a number: 9
+9 = 9^2 = 81 = 8+1 = 9
+9 is a Neon Number

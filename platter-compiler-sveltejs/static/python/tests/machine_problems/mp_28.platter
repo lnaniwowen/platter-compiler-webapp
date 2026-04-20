@@ -1,0 +1,134 @@
+##  
+Write a program that will  compute and display  the average grade of a student in the following subjects: Math, Science, English and Filipino.  Each subject contans 5 quizzes. Ask the user to input the score in 5 quizzes for each subjects, compute and display the average of each subject.
+##
+
+piece of i;
+piece of score, sum;
+sip of avg_math, avg_sci, avg_eng, avg_fil;
+
+start(){
+
+    # ===== MATH =====
+    sum = 0;
+    i = 1;
+
+    bill("Enter 5 quiz scores for Math:\n");
+
+    repeat(i <= 5){
+        bill("Quiz " + tochars(i) + ": ");
+        score = topiece(take());
+        sum = sum + score;
+        i = i + 1;
+    }
+
+    avg_math = tosip(sum) / 5.0;
+
+
+    # ===== SCIENCE =====
+    sum = 0;
+    i = 1;
+
+    bill("\nEnter 5 quiz scores for Science:\n");
+
+    repeat(i <= 5){
+        bill("Quiz " + tochars(i) + ": ");
+        score = topiece(take());
+        sum = sum + score;
+        i = i + 1;
+    }
+
+    avg_sci = tosip(sum) / 5.0;
+
+
+    # ===== ENGLISH =====
+    sum = 0;
+    i = 1;
+
+    bill("\nEnter 5 quiz scores for English:\n");
+
+    repeat(i <= 5){
+        bill("Quiz " + tochars(i) + ": ");
+        score = topiece(take());
+        sum = sum + score;
+        i = i + 1;
+    }
+
+    avg_eng = tosip(sum) / 5.0;
+
+
+    # ===== FILIPINO =====
+    sum = 0;
+    i = 1;
+
+    bill("\nEnter 5 quiz scores for Filipino:\n");
+
+    repeat(i <= 5){
+        bill("Quiz " + tochars(i) + ": ");
+        score = topiece(take());
+        sum = sum + score;
+        i = i + 1;
+    }
+
+    avg_fil = tosip(sum) / 5.0;
+
+
+    # ===== OUTPUT =====
+    bill("\nAverage in Math: " + tochars(avg_math));
+    bill("\nAverage in Science: " + tochars(avg_sci));
+    bill("\nAverage in English: " + tochars(avg_eng));
+    bill("\nAverage in Filipino: " + tochars(avg_fil));
+}
+--end
+98
+65
+87
+98
+95
+99
+84
+95
+98
+100
+98
+96
+95
+92
+91
+99
+98
+96
+97
+93
+--end
+Enter 5 quiz scores for Math:
+Quiz 1: 98
+Quiz 2: 65
+Quiz 3: 87
+Quiz 4: 98
+Quiz 5: 95
+
+Enter 5 quiz scores for Science:
+Quiz 1: 99
+Quiz 2: 84
+Quiz 3: 95
+Quiz 4: 98
+Quiz 5: 100
+
+Enter 5 quiz scores for English:
+Quiz 1: 98
+Quiz 2: 96
+Quiz 3: 95
+Quiz 4: 92
+Quiz 5: 91
+
+Enter 5 quiz scores for Filipino:
+Quiz 1: 99
+Quiz 2: 98
+Quiz 3: 96
+Quiz 4: 97
+Quiz 5: 93
+
+Average in Math: 88.6
+Average in Science: 95.2
+Average in English: 94.4
+Average in Filipino: 96.6

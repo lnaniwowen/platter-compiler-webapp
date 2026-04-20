@@ -1,0 +1,26 @@
+# Compute and display the sum of the digits
+
+prepare piece of sumDigits(piece of num){
+    piece of sum = 0;
+    repeat(num != 0){
+        piece of rem = num % 10;
+        sum = sum + rem;
+        num = num / 10;
+    }
+    serve sum;
+}
+
+start(){
+    piece of sum, input;
+    chars of answer;
+    bill("Input a number: ");
+    input = topiece(take());
+    sum = sumDigits(input);
+    answer = tochars(sum);
+    bill("Sum of Digits: " + answer);
+}
+--end
+1234
+--end
+Input a number: 1234
+Sum of Digits: 10

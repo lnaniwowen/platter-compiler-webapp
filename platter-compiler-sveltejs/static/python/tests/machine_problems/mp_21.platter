@@ -1,0 +1,27 @@
+# Write a program that prompts the user to input a series of integers until the user 
+# stops entering 0 using a while loop. Calculate and print the sum of all the positive integers entered.
+
+start(){
+        flag of continue = up;
+    piece of sum = 0, input = 0;    
+    
+        order{
+            input = topiece(bill("Enter number: ") + take());
+        check(input == 0){continue = down;}
+        alt(input > 0){sum += input;}
+        instead{bill("Enter positive integers only\n");}    
+    } repeat(continue == up);
+    bill("Sum of positive integers = "+tochars(sum));
+}
+--end
+-3
+4
+5
+0
+--end
+Enter number: -3
+Enter positive integers only
+Enter number: 4
+Enter number: 5
+Enter number: 0
+Sum of positive integers = 9

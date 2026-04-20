@@ -1,0 +1,64 @@
+##  Addition of two matrices. 
+Ask the user to input 5 numbers/elements in each array A and Array B, 
+store the sum of the numbers in  Array A & Array B in Array C.##
+
+
+start(){
+    piece of total = 5;
+    piece of i = 0;
+    sip[] of arrayA = [];
+    sip[] of arrayB = [];
+    sip[] of arrayC = [];
+    sip of tempValue = 0.0;
+
+    bill("Input " + tochars(total) + " elements for Array A:\n");
+    pass(i = 0; i += 1; i < total){
+        bill("A[" + tochars(i) + "]: ");
+        tempValue = tosip(take());
+        append(arrayA, tempValue);
+    }
+
+    bill("\nInput " + tochars(total) + " elements for Array B:\n");
+    pass(i = 0; i += 1; i < total){
+        bill("B[" + tochars(i) + "]: ");
+        tempValue = tosip(take());
+        append(arrayB, tempValue);
+    }
+
+    pass(i = 0; i += 1; i < total){
+        append(arrayC, arrayA[i] + arrayB[i]);
+    }
+
+    bill("\nThe sum (Array C) is: ");
+    pass(i = 0; i += 1; i < total){
+        bill(tochars(arrayC[i]) + " ");
+    }
+    bill("\n");
+}
+--end
+1
+2
+3
+4
+5
+6
+7
+8
+9
+1
+--end
+Input 5 elements for Array A:
+A[0]: 1
+A[1]: 2
+A[2]: 3
+A[3]: 4
+A[4]: 5
+
+Input 5 elements for Array B:
+B[0]: 6
+B[1]: 7
+B[2]: 8
+B[3]: 9
+B[4]: 1
+
+The sum (Array C) is: 7.0 9.0 11.0 13.0 6.0 

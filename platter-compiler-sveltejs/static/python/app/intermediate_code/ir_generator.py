@@ -36,7 +36,7 @@ class IRGenerator:
     """
     Generates intermediate representation from AST.
     Produces both TAC instructions and Quadruples.
-    """
+    """ 
     
     def __init__(self):
         # TAC instructions list
@@ -199,6 +199,11 @@ class IRGenerator:
                 value_temp = self.visit_expression(value_expr)
                 self.emit_tac(TACTableAssign(node.identifier, field_name, value_temp))
                 self.emit_quad(".=", node.identifier, field_name, value_temp)
+        elif node.init_value is not None:
+            # Table initialized from expression (e.g., function call returning table)
+            value_temp = self.visit_expression(node.init_value)
+            self.emit_tac(TACAssignment(node.identifier, value_temp))
+            self.emit_quad("=", value_temp, None, node.identifier)
     
     def visit_recipe_decl(self, node: RecipeDecl):
         """Generate IR for recipe (function) declaration"""

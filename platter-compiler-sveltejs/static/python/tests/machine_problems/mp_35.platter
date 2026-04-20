@@ -1,0 +1,48 @@
+##
+Same scenario with problem number 4, this time display the number of capital letters in a word.
+Example: BeautiFuL
+No of capital letters: 3
+##
+chars[] of UPPERCASE = [
+    "A","B","C","D","E","F","G","H","I","J","K","L","M",
+    "N","O","P","Q","R","S","T","U","V","W","X","Y","Z"
+];
+
+start(){
+    chars of input = bill("Enter string: ") + take();
+    
+    piece of count = 0;
+    piece of i = 1; # 'copy' uses 1-based indexing, so we start at 1
+    
+    # Outer infinite loop to iterate through the string
+    repeat(up) {
+        # Extract a single character at position 'i'
+        chars of currentChar = copy(input, i, i);
+        piece of j = 0;
+        
+        # Sentinel check: if copy returns an empty string, we reached the end
+        check(currentChar == "") {
+            stop;
+        }
+        
+        j = 0;
+        
+        # We can still use size() here because UPPERCASE is an actual array
+        repeat(j < size(UPPERCASE)) {
+            check(currentChar == UPPERCASE[j]) {
+                count += 1;
+                stop; # Stop inner loop once a match is found
+            }
+            j += 1;
+        }
+        
+        i += 1; # Move to the next character in the input string
+    }
+    
+    bill("No of capital letters: " + tochars(count) + "\n");
+}
+--end
+hEllO
+--end
+Enter string: hEllO
+No of capital letters: 2
