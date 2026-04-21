@@ -1,0 +1,32 @@
+# reverse a string 
+
+chars of string, rev_S, character;
+piece of i, length;
+
+start(){
+    bill("Enter a string: ");
+    string = take();
+
+    rev_S = "";
+    length = 1;
+
+    repeat(copy(string, length, length) != ""){
+        length = length + 1;
+    }
+
+    length = length - 1;
+    i = length;
+
+    repeat(i >= 1){
+        character = copy(string, i, i);
+        rev_S = rev_S + character;
+        i = i - 1;
+    }
+
+    bill("Reversed String: " + rev_S);
+}
+--end
+-john
+--end
+Enter a string: -john
+Reversed String: nhoj-
