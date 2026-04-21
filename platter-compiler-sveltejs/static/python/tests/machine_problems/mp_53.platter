@@ -1,483 +1,212 @@
-table of ClientRecord = [
-	chars of name;
-	piece of accountNumber;
-	chars of date;
-	piece of balance;
-	piece of dailyDepositTotal;
-	piece of dailyWithdrawalTotal;
-	piece of depositCount;
-	piece of withdrawalCount;
-	piece of inquiryCount;
-	flag of done;
-];
-
-ClientRecord[] of clients = [];
-
-piece of clientCount = 0;
-piece of registeredClients = 0;
-
-prepare flag of isWholeNumber(chars of text) {
-	piece of i = 1;
-	chars of c = "";
-
-	check(text == "") {
-		serve down;
-	}
-
-	c = copy(text, i, i);
-	repeat(c != "") {
-		check(c < "0" or c > "9") {
-			serve down;
-		}
-
-		i += 1;
-		c = copy(text, i, i);
-	}
-
-	serve up;
+# JEEPNEY
+prepare piece of check_vacancy(piece of current, piece of max){
+    serve max - current;
 }
 
-prepare piece of findClientIndex(piece of accountNumber) {
-	piece of i = 0;
-	ClientRecord of currentClient = [];
-
-	pass(i = 0; i += 1; i < registeredClients) {
-		currentClient = clients[i];
-		check(currentClient:accountNumber == accountNumber) {
-			serve i;
-		}
-	}
-
-	serve registeredClients;
+prepare piece of billMap(piece[] of seats, piece of idx, piece of total){
+    check(idx < total){
+        check(idx < 11){
+            check(seats[idx] == 1){ bill(" O "); } instead { bill(" X "); }
+            check(idx == 10){ bill("|\n"); } instead { bill("|"); }
+        }
+        check(idx == 11){
+            check(seats[idx] == 1){ bill(" O "); } instead { bill(" X "); }
+            bill("|\n\n"); 
+            bill(" D |"); 
+        }
+        check(idx >= 12){
+            check(seats[idx] == 1){ bill(" O "); } instead { bill(" X "); }
+            check(idx == 21){ bill("|"); } instead { bill("|"); }
+        }
+        billMap(seats, idx + 1, total);
+    }
+    serve 0;
 }
 
-prepare piece of displaySummary(piece of idx) {
-	ClientRecord of currentClient = [];
-	currentClient = clients[idx];
+start(){
+    chars of playAgain = "y";
+    piece[] of seats = [];
+    piece of capacity = 22, current_passengers = 0, temp_input = 0, target_seat = 0;
+    piece of choice1 = 0, location = 0, vacant = 0, loaded = 0, removed = 0;
+    piece of i = 0;
 
-	bill("\n=== CLIENT TRANSACTION SUMMARY ===\n");
-	bill("Client Name: " + currentClient:name + "\n");
-	bill("Account Number: " + tochars(currentClient:accountNumber) + "\n");
-	bill("Date: " + currentClient:date + "\n");
-	bill("Deposit Transactions: " + tochars(currentClient:depositCount) + "\n");
-	bill("Total Deposited: " + tochars(currentClient:dailyDepositTotal) + "\n");
-	bill("Withdrawal Transactions: " + tochars(currentClient:withdrawalCount) + "\n");
-	bill("Total Withdrawn: " + tochars(currentClient:dailyWithdrawalTotal) + "\n");
-	bill("Balance Inquiries: " + tochars(currentClient:inquiryCount) + "\n");
-	bill("Current Balance: " + tochars(currentClient:balance) + "\n");
-	bill("==================================\n");
-	serve 0;
-}
+    order {
+        seats = [];
+        current_passengers = 0;
+        pass(i = -1; i += 1; i < capacity){ append(seats, 0); }
 
-prepare piece of displayClientChoices(flag of lockDoneClients) {
-	piece of i = 0;
-	ClientRecord of currentClient = [];
+        order {
+            bill("\n==============================\n");
+            bill("  PLATTER JEEPNEY DASHBOARD   \n");
+            bill("==============================\n");
+            
+            bill("Status: ");
+            check(location == 0){ bill("Cruising...\n"); }
+            check(location == 1){ bill("At Loading Area\n"); }
+            check(location == 2){ bill("At Unloading Area\n"); }
+            
+            vacant = check_vacancy(current_passengers, 22);
+            bill("Headcount: " + tochars(current_passengers) + "/22\n");
+            bill("------------------------------\n");
+            bill("1-Drive to Loading Area\n2-Drive to Unloading Area\n3-Show Map\n4-Exit\nChoice: ");
+            
+            choice1 = topiece(take());
 
-	pass(i = 0; i += 1; i < clientCount) {
-		currentClient = clients[i];
-		check(lockDoneClients == up and currentClient:done == up) {
-			bill(tochars(i + 1) + ". " + currentClient:name + " (Account: " + tochars(currentClient:accountNumber) + ") - LOCKED\n");
-		} instead {
-			bill(tochars(i + 1) + ". " + currentClient:name + " (Account: " + tochars(currentClient:accountNumber) + ")\n");
-		}
-	}
+            check(choice1 < 1 or choice1 > 4){
+                bill("Invalid menu choice! Please select 1-4.\n");
+            } instead {
+                menu(choice1){
+                    choice 1: 
+                        location = 1; 
+                        bill("\n>> Arrived @ Loading Area.\n"); 
+                        vacant = check_vacancy(current_passengers, 22);
+                        
+                        check(vacant == 0){ bill("Jeepney is full!\n"); } instead {
+                            order {
+                                bill("How many are loading? (" + tochars(vacant) + " vacant): ");
+                                temp_input = topiece(take());
+                                check(temp_input > vacant){ bill("Not enough vacant seats!\n"); }
+                                check(temp_input < 0){ bill("Input cannot be negative!\n"); }
+                            } repeat (temp_input > vacant or temp_input < 0);
 
-	serve 0;
-}
+                            check(temp_input > 0){
+                                check(temp_input == 22){
+                                    bill("Full capacity! Auto-filling all seats...\n");
+                                    pass(i = -1; i += 1; i < capacity){ seats[i] = 1; }
+                                } instead {
+                                    loaded = 0;
+                                    order {
+                                        bill("\nCurrently Occupied: ");
+                                        check(current_passengers == 0 and loaded == 0){
+                                            bill("None");
+                                        } instead {
+                                            pass(i = -1; i += 1; i < capacity){
+                                                check(seats[i] == 1){ bill("[" + tochars(i) + "] "); }
+                                            }
+                                        }
+                                        bill("\n--- SELECT VACANT SEAT (X) --- \n");
+                                        billMap(seats, 0, capacity);
+                                        bill("\nPassenger " + tochars(loaded + 1) + " of " + tochars(temp_input));
+                                        bill("\nEnter Seat Index (0-21): ");
+                                        target_seat = topiece(take());
 
-prepare piece of processClientTransactions(piece of idx, piece of transactionsPerClient) {
-	piece of completed = 0;
-	piece of amount = 0;
-	piece of rawInput = 0;
-	ClientRecord of currentClient = [];
+                                        check(target_seat < 0 or target_seat > 21){ 
+                                            bill(">>Invalid seat index!\n"); 
+                                        } instead {
+                                            check(seats[target_seat] == 1){ bill("Seat already occupied!\n"); } instead {
+                                                seats[target_seat] = 1;
+                                                loaded = loaded + 1;
+                                                bill("Passenger officially seated at [" + tochars(target_seat) + "]\n");
+                                            }
+                                        }
+                                    } repeat (loaded < temp_input);
+                                }
+                                current_passengers = current_passengers + temp_input;
+                            }
+                        }
+                        location = 0; stop;
 
-	currentClient = clients[idx];
+                    choice 2: 
+                        location = 2; 
+                        bill("\n>> Arrived @ Unloading Area.\n"); 
+                        check(current_passengers == 0){ bill("Jeepney is empty!\n"); } instead {
+                            
+                            bill("Seats Occupied: ");
+                            pass(i = -1; i += 1; i < capacity){
+                                check(seats[i] == 1){ bill("[" + tochars(i) + "] "); }
+                            }
+                            bill("\n");
 
-	bill("\n==================================\n");
-	bill("Processing Client: " + currentClient:name + "\n");
-	bill("Account Number: " + tochars(currentClient:accountNumber) + "\n");
-	bill("Date: " + currentClient:date + "\n");
-	bill("==================================\n");
+                            order {
+                                bill("How many are leaving? (" + tochars(current_passengers) + " occupied): ");
+                                temp_input = topiece(take());
+                                check(temp_input > current_passengers){ bill("Exceeds headcount!\n"); }
+                                check(temp_input < 0){ bill("Input cannot be negative!\n"); }
+                            } repeat (temp_input > current_passengers or temp_input < 0);
 
-	repeat(completed < transactionsPerClient) {
-		bill("\nTransactions Completed: " + tochars(completed) + " / " + tochars(transactionsPerClient) + "\n");
-		bill("1. Deposit\n");
-		bill("2. Withdraw\n");
-		bill("3. Balance Inquiry\n");
-		bill("4. Display Transaction Summary\n");
-		bill("Enter choice: ");
+                            check(temp_input > 0){
+                                check(temp_input == current_passengers){
+                                    bill("All passengers leaving. Clearing all seats...\n");
+                                    pass(i = -1; i += 1; i < capacity){ seats[i] = 0; }
+                                } instead {
+                                    removed = 0;
+                                    order {
+                                        bill("\nCurrently Occupied: ");
+                                        pass(i = -1; i += 1; i < capacity){
+                                            check(seats[i] == 1){ bill("[" + tochars(i) + "] "); }
+                                        }
+                                        bill("\n--- SELECT OCCUPIED SEAT (O) --- \n");
+                                        billMap(seats, 0, capacity);
+                                        bill("\nPassenger " + tochars(removed + 1) + " of " + tochars(temp_input));
+                                        bill("\nEnter Seat Index to vacate (0-21): ");
+                                        target_seat = topiece(take());
 
-		rawInput = topiece(take());
-		check(isWholeNumber(topiece(rawInput))) {
-			rawInput = topiece(rawInput);
-		} instead {
-			rawInput = 0;
-		}
+                                        check(target_seat < 0 or target_seat > 21){ 
+                                            bill("Invalid seat index!\n"); 
+                                        } instead {
+                                            check(seats[target_seat] == 0){ bill("Seat is already empty!\n"); } instead {
+                                                seats[target_seat] = 0;
+                                                removed = removed + 1;
+                                                bill(">> Seat [" + tochars(target_seat) + "] is now vacant.\n");
+                                            }
+                                        }
+                                    } repeat (removed < temp_input);
+                                }
+                                current_passengers = current_passengers - temp_input;
+                            }
+                        }
+                        location = 0; stop;
 
-		menu(rawInput) {
-			choice 1:
-				bill("Enter deposit amount: ");
-				rawInput = topiece(take());
+                    choice 3: 
+                        bill("\n---JeepNey Seat Index----------------------\n");
+                        billMap(seats, 0, capacity);
+                        bill("\n");
+                        stop;
 
-				check(isWholeNumber(topiece(rawInput))) {
-					amount = topiece(rawInput);
+                    choice 4: bill("Ending shift.\n"); stop;
+                }
+            }
+        } repeat (choice1 != 4);
 
-					check(amount <= 0) {
-						bill("Deposit amount must be greater than 0\n");
-					} instead {
-						check(currentClient:dailyDepositTotal + amount > 50000) {
-							bill("Daily deposit limit exceeded. Maximum total deposit per day is 50000\n");
-						} instead {
-							currentClient:balance += amount;
-							currentClient:dailyDepositTotal += amount;
-							currentClient:depositCount += 1;
-							clients[idx] = currentClient;
-							completed += 1;
-							bill("Deposit successful\n");
-						}
-					}
-				} instead {
-					bill("Invalid amount. Enter digits only\n");
-				}
-				stop;
-
-			choice 2:
-				bill("Enter withdrawal amount: ");
-				rawInput = topiece(take());
-
-				check(isWholeNumber(topiece(rawInput))) {
-					amount = topiece(rawInput);
-
-					check(amount <= 0) {
-						bill("Withdrawal amount must be greater than 0\n");
-					} instead {
-						check(currentClient:dailyWithdrawalTotal + amount > 20000) {
-							bill("Daily withdrawal limit exceeded. Maximum total withdrawal per day is 20000\n");
-						} instead {
-							check(amount > currentClient:balance) {
-								bill("Insufficient balance. Withdrawal must be less than or equal to balance\n");
-							} instead {
-								currentClient:balance -= amount;
-								currentClient:dailyWithdrawalTotal += amount;
-								currentClient:withdrawalCount += 1;
-								clients[idx] = currentClient;
-								completed += 1;
-								bill("Withdrawal successful\n");
-							}
-						}
-					}
-				} instead {
-					bill("Invalid amount. Enter digits only\n");
-				}
-				stop;
-
-			choice 3:
-				currentClient:inquiryCount += 1;
-				clients[idx] = currentClient;
-				completed += 1;
-				bill("Current balance: " + tochars(currentClient:balance) + "\n");
-				stop;
-
-			choice 4:
-				clients[idx] = currentClient;
-				displaySummary(idx);
-				stop;
-
-			usual:
-				bill("Invalid menu choice\n");
-		}
-	}
-
-	clients[idx] = currentClient;
-	bill("\nCompleted required transactions for account " + tochars(currentClient:accountNumber) + "\n");
-	displaySummary(idx);
-	serve 0;
-}
-
-start() {
-	piece of transactionsPerClient = 0;
-	piece of i = 0;
-	piece of accountNumber = 0;
-	piece of initialBalance = 0;
-	piece of firstClientNumber = 0;
-	piece of currentClientIndex = 0;
-	piece of completedClients = 0;
-    piece of firstClientDec = 0;
-	chars of clientName = "";
-	chars of clientDate = "";
-	piece of rawInput = 0;
-	ClientRecord of newClient;
-	ClientRecord of selectedClient = [];
-
-	order {
-		bill("Enter number of clients (1 to 5): ");
-		rawInput = topiece(take());
-
-		check(isWholeNumber(topiece(rawInput))) {
-			clientCount = topiece(rawInput);
-		} instead {
-			clientCount = 0;
-			bill("Invalid input. Enter digits only\n");
-		}
-
-		check(clientCount > 5) {
-			bill("Maximum number of clients is 5\n");
-		}
-	} repeat(clientCount <= 0 or clientCount > 5);
-
-	order {
-		bill("Enter number of transactions per client (minimum 5): ");
-		rawInput = topiece(take());
-
-		check(isWholeNumber(topiece(rawInput))) {
-			transactionsPerClient = topiece(rawInput);
-		} instead {
-			transactionsPerClient = 0;
-			bill("Invalid input. Enter digits only\n");
-		}
-
-		check(transactionsPerClient > 0 and transactionsPerClient < 5) {
-			bill("Each client must have at least 5 transactions per day\n");
-		}
-	} repeat(transactionsPerClient < 5);
-
-	pass(i = 0; i += 1; i < clientCount) {
-		bill("\nEnter details for client #" + tochars(i + 1) + "\n");
-
-		bill("Client name: ");
-		clientName = take();
-
-		order {
-			bill("Client account number: ");
-			rawInput = topiece(take());
-
-			check(isWholeNumber(topiece(rawInput))) {
-				accountNumber = topiece(rawInput);
-
-				check(accountNumber <= 0) {
-					bill("Account number must be greater than 0\n");
-				}
-
-				check(findClientIndex(accountNumber) < registeredClients) {
-					accountNumber = 0;
-					bill("Account number already exists. Enter a unique account number\n");
-				}
-			} instead {
-				accountNumber = 0;
-				bill("Invalid input. Enter digits only\n");
-			}
-		} repeat(accountNumber <= 0);
-
-		bill("Date (YYYY-MM-DD): ");
-		clientDate = take();
-
-		order {
-			bill("Initial balance: ");
-			rawInput = topiece(take());
-
-			check(isWholeNumber(topiece(rawInput))) {
-				initialBalance = topiece(rawInput);
-				check(initialBalance < 0) {
-					bill("Initial balance cannot be negative\n");
-				}
-			} instead {
-				initialBalance = -1;
-				bill("Invalid input. Enter digits only\n");
-			}
-		} repeat(initialBalance < 0);
-
-		newClient = [
-			name = clientName;
-			accountNumber = accountNumber;
-			date = clientDate;
-			balance = initialBalance;
-			dailyDepositTotal = 0;
-			dailyWithdrawalTotal = 0;
-			depositCount = 0;
-			withdrawalCount = 0;
-			inquiryCount = 0;
-			done = down;
-		];
-
-		clients = append(clients, newClient);
-		registeredClients += 1;
-	}
-
-	bill("\nChoose which client will transact first\n");
-	displayClientChoices(down);
-
-	order {
-		bill("Enter client number to start (1 to " + tochars(clientCount) + "): ");
-		rawInput = topiece(take());
-
-		check(isWholeNumber(topiece(rawInput))) {
-			firstClientNumber = topiece(rawInput);
-		} instead {
-			firstClientNumber = 0;
-			bill("Invalid input. Enter digits only\n");
-		}
-
-		check(firstClientNumber < 1 or firstClientNumber > clientCount) {
-			bill("Please select a valid client number\n");
-		}
-	} repeat(firstClientNumber < 1 or firstClientNumber > clientCount);
-
-	bill("\n=== STARTING CLIENT TRANSACTIONS ===\n");
-	completedClients = 0;
-	repeat(completedClients < clientCount) {
-		currentClientIndex = firstClientNumber - 1;
-		processClientTransactions(currentClientIndex, transactionsPerClient);
-		selectedClient = clients[currentClientIndex];
-		selectedClient:done = up;
-		clients[currentClientIndex] = selectedClient;
-		completedClients += 1;
-
-		check(completedClients < clientCount) {
-			bill("\nChoose next client to transact (done clients are locked)\n");
-			displayClientChoices(up);
-
-			order {
-				bill("Enter next client number (1 to " + tochars(clientCount) + "): ");
-				rawInput = topiece(take());
-
-				check(isWholeNumber(topiece(rawInput))) {
-					firstClientNumber = topiece(rawInput);
-				} instead {
-					firstClientNumber = 0;
-					bill("Invalid input. Enter digits only\n");
-				}
-
-				check(firstClientNumber >= 1 and firstClientNumber <= clientCount) {
-                	firstClientDec = firstClientNumber - 1;
-					selectedClient = clients[firstClientDec];
-					check(selectedClient:done == up) {
-						firstClientNumber = 0;
-						bill("Client already completed and is locked\n");
-					}
-				}
-
-				check(firstClientNumber < 1 or firstClientNumber > clientCount) {
-					bill("Please select a valid client number\n");
-				}
-			} repeat(firstClientNumber < 1 or firstClientNumber > clientCount);
-		}
-	}
-
-	bill("\n=== ALL CLIENTS SUMMARY ===\n");
-	pass(i = 0; i += 1; i < clientCount) {
-		displaySummary(i);
-	}
-
-	bill("Simulation complete\n");
+        bill("\nRestart? (y/n): ");
+        playAgain = take();
+    } repeat (playAgain == "y");
 }
 --end
-1
-5
-Alice
-1001
-2026-04-21
-1000
-1
-1
-200
-2
-100
 3
-1
-300
-2
-50
+4
+n
 --end
-Enter number of clients (1 to 5): 1
-Enter number of transactions per client (minimum 5): 5
 
-Enter details for client #1
-Client name: Alice
-Client account number: 1001
-Date (YYYY-MM-DD): 2026-04-21
-Initial balance: 1000
+==============================
+  PLATTER JEEPNEY DASHBOARD   
+==============================
+Status: Cruising...
+Headcount: 0/22
+------------------------------
+1-Drive to Loading Area
+2-Drive to Unloading Area
+3-Show Map
+4-Exit
+Choice: 3
 
-Choose which client will transact first
-1. Alice (Account: 1001)
-Enter client number to start (1 to 1): 1
+---JeepNey Seat Index----------------------
+ X | X | X | X | X | X | X | X | X | X | X |
+ X |
 
-=== STARTING CLIENT TRANSACTIONS ===
+ D | X | X | X | X | X | X | X | X | X | X |
 
-==================================
-Processing Client: Alice
-Account Number: 1001
-Date: 2026-04-21
-==================================
+==============================
+  PLATTER JEEPNEY DASHBOARD   
+==============================
+Status: Cruising...
+Headcount: 0/22
+------------------------------
+1-Drive to Loading Area
+2-Drive to Unloading Area
+3-Show Map
+4-Exit
+Choice: 4
+Ending shift.
 
-Transactions Completed: 0 / 5
-1. Deposit
-2. Withdraw
-3. Balance Inquiry
-4. Display Transaction Summary
-Enter choice: 1
-Enter deposit amount: 200
-Deposit successful
-
-Transactions Completed: 1 / 5
-1. Deposit
-2. Withdraw
-3. Balance Inquiry
-4. Display Transaction Summary
-Enter choice: 2
-Enter withdrawal amount: 100
-Withdrawal successful
-
-Transactions Completed: 2 / 5
-1. Deposit
-2. Withdraw
-3. Balance Inquiry
-4. Display Transaction Summary
-Enter choice: 3
-Current balance: 1100
-
-Transactions Completed: 3 / 5
-1. Deposit
-2. Withdraw
-3. Balance Inquiry
-4. Display Transaction Summary
-Enter choice: 1
-Enter deposit amount: 300
-Deposit successful
-
-Transactions Completed: 4 / 5
-1. Deposit
-2. Withdraw
-3. Balance Inquiry
-4. Display Transaction Summary
-Enter choice: 2
-Enter withdrawal amount: 50
-Withdrawal successful
-
-Completed required transactions for account 1001
-
-=== CLIENT TRANSACTION SUMMARY ===
-Client Name: Alice
-Account Number: 1001
-Date: 2026-04-21
-Deposit Transactions: 2
-Total Deposited: 500
-Withdrawal Transactions: 2
-Total Withdrawn: 150
-Balance Inquiries: 1
-Current Balance: 1350
-==================================
-
-=== ALL CLIENTS SUMMARY ===
-
-=== CLIENT TRANSACTION SUMMARY ===
-Client Name: Alice
-Account Number: 1001
-Date: 2026-04-21
-Deposit Transactions: 2
-Total Deposited: 500
-Withdrawal Transactions: 2
-Total Withdrawn: 150
-Balance Inquiries: 1
-Current Balance: 1350
-==================================
-Simulation complete
+Restart? (y/n): n

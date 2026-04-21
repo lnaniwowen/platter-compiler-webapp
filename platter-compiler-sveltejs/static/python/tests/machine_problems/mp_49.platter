@@ -1,0 +1,85 @@
+# Input a series of characters, and if the user inputs a number, stop Input a series of numbers and if characters, stop
+# Doesn't allow negative numbers, decimals(without the leading 0), and special characters
+
+start(){
+    chars[] of log = [];
+    chars of entry = "";
+    piece of i = 0, total = 0;
+    flag of active = up, firstInput = up, isNum = up, invalid = down;
+
+    bill(" '' Start Typing '' \n");
+
+    order {
+        bill("Input: ");
+        entry = take();
+        invalid = up;
+
+        check(entry >= "0" and entry <= "9"){ invalid = down; }
+        alt(entry >= "a" and entry <= "z"){ invalid = down; }
+        alt(entry >= "A" and entry <= "Z"){ invalid = down; }
+
+        check(invalid == up){
+            bill("Invalid: Only Positive Numbers or Letters are allowed.\n");
+            active = down; 
+        } instead {
+            
+            check(firstInput == up){
+                check(entry >= "0" and entry <= "9"){
+                    isNum = up;
+                } instead {
+                    isNum = down;
+                }
+                firstInput = down;
+            }
+
+            check(isNum == up){
+                check(entry >= "0" and entry <= "9"){
+                    append(log, entry);
+                    total = total + 1;
+                } instead {
+                    bill("END: A Letter is Entered in Number Mode.\n");
+                    active = down;
+                }
+            } instead {
+                check(entry >= "0" and entry <= "9"){
+                    bill("END: A Number is Entered in Character Mode.\n");
+                    active = down;
+                } instead {
+                    append(log, entry);
+                    total = total + 1;
+                }
+            }
+        }
+
+    } repeat (active == up);
+
+    bill("\n--- FINAL LOG ---\n");
+
+    check(total == 0){
+        bill("Empty.\n");
+    } instead {
+        pass(i = 0; i += 1; i < total){
+            bill("[" + tochars(i) + "]: " + log[i] + "\n");
+        }
+    }
+}
+--end
+1
+2
+3
+4
+a
+--end
+ '' Start Typing '' 
+Input: 1
+Input: 2
+Input: 3
+Input: 4
+Input: a
+END: A Letter is Entered in Number Mode.
+
+--- FINAL LOG ---
+[0]: 1
+[1]: 2
+[2]: 3
+[3]: 4
