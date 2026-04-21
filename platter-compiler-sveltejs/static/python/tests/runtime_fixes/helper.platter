@@ -1,5 +1,4 @@
-# Utility helpers for safe input validation
-
+# Utility helpers for safe input validation before typecasting
 prepare flag of safeIsPiece(chars of txt, flag of positiveOnly){
     piece of i = 1;
     chars of ch = "";
@@ -29,7 +28,6 @@ prepare flag of safeIsPiece(chars of txt, flag of positiveOnly){
 
     serve hasDigit;
 }
-
 prepare flag of safeIsSip(chars of txt, flag of positiveOnly){
     piece of i = 1;
     piece of lastPos = 0;
@@ -78,7 +76,6 @@ prepare flag of safeIsSip(chars of txt, flag of positiveOnly){
 
     serve hasDigit;
 }
-
 prepare flag of safeIsChars(chars of txt){
     piece of i = 1;
     chars of ch = "";
@@ -95,7 +92,18 @@ prepare flag of safeIsChars(chars of txt){
 
     serve up;
 }
+# Utility helpers for chars
+prepare piece of charsLen(chars of txt){
+	piece of i = 1;
+	repeat(copy(txt, i, i) != ""){
+		i = i + 1;
+	}
+	serve i - 1;
+}
 
 start(){
     serve 0;
 }
+--end
+--end
+[[EXIT_MESSAGE]]Program ended with exit code 0
