@@ -1,0 +1,212 @@
+# JEEPNEY
+prepare piece of check_vacancy(piece of current, piece of max){
+    serve max - current;
+}
+
+prepare piece of billMap(piece[] of seats, piece of idx, piece of total){
+    check(idx < total){
+        check(idx < 11){
+            check(seats[idx] == 1){ bill(" O "); } instead { bill(" X "); }
+            check(idx == 10){ bill("|\n"); } instead { bill("|"); }
+        }
+        check(idx == 11){
+            check(seats[idx] == 1){ bill(" O "); } instead { bill(" X "); }
+            bill("|\n\n"); 
+            bill(" D |"); 
+        }
+        check(idx >= 12){
+            check(seats[idx] == 1){ bill(" O "); } instead { bill(" X "); }
+            check(idx == 21){ bill("|"); } instead { bill("|"); }
+        }
+        billMap(seats, idx + 1, total);
+    }
+    serve 0;
+}
+
+start(){
+    chars of playAgain = "y";
+    piece[] of seats = [];
+    piece of capacity = 22, current_passengers = 0, temp_input = 0, target_seat = 0;
+    piece of choice1 = 0, location = 0, vacant = 0, loaded = 0, removed = 0;
+    piece of i = 0;
+
+    order {
+        seats = [];
+        current_passengers = 0;
+        pass(i = -1; i += 1; i < capacity){ append(seats, 0); }
+
+        order {
+            bill("\n==============================\n");
+            bill("  PLATTER JEEPNEY DASHBOARD   \n");
+            bill("==============================\n");
+            
+            bill("Status: ");
+            check(location == 0){ bill("Cruising...\n"); }
+            check(location == 1){ bill("At Loading Area\n"); }
+            check(location == 2){ bill("At Unloading Area\n"); }
+            
+            vacant = check_vacancy(current_passengers, 22);
+            bill("Headcount: " + tochars(current_passengers) + "/22\n");
+            bill("------------------------------\n");
+            bill("1-Drive to Loading Area\n2-Drive to Unloading Area\n3-Show Map\n4-Exit\nChoice: ");
+            
+            choice1 = topiece(take());
+
+            check(choice1 < 1 or choice1 > 4){
+                bill("Invalid menu choice! Please select 1-4.\n");
+            } instead {
+                menu(choice1){
+                    choice 1: 
+                        location = 1; 
+                        bill("\n>> Arrived @ Loading Area.\n"); 
+                        vacant = check_vacancy(current_passengers, 22);
+                        
+                        check(vacant == 0){ bill("Jeepney is full!\n"); } instead {
+                            order {
+                                bill("How many are loading? (" + tochars(vacant) + " vacant): ");
+                                temp_input = topiece(take());
+                                check(temp_input > vacant){ bill("Not enough vacant seats!\n"); }
+                                check(temp_input < 0){ bill("Input cannot be negative!\n"); }
+                            } repeat (temp_input > vacant or temp_input < 0);
+
+                            check(temp_input > 0){
+                                check(temp_input == 22){
+                                    bill("Full capacity! Auto-filling all seats...\n");
+                                    pass(i = -1; i += 1; i < capacity){ seats[i] = 1; }
+                                } instead {
+                                    loaded = 0;
+                                    order {
+                                        bill("\nCurrently Occupied: ");
+                                        check(current_passengers == 0 and loaded == 0){
+                                            bill("None");
+                                        } instead {
+                                            pass(i = -1; i += 1; i < capacity){
+                                                check(seats[i] == 1){ bill("[" + tochars(i) + "] "); }
+                                            }
+                                        }
+                                        bill("\n--- SELECT VACANT SEAT (X) --- \n");
+                                        billMap(seats, 0, capacity);
+                                        bill("\nPassenger " + tochars(loaded + 1) + " of " + tochars(temp_input));
+                                        bill("\nEnter Seat Index (0-21): ");
+                                        target_seat = topiece(take());
+
+                                        check(target_seat < 0 or target_seat > 21){ 
+                                            bill(">>Invalid seat index!\n"); 
+                                        } instead {
+                                            check(seats[target_seat] == 1){ bill("Seat already occupied!\n"); } instead {
+                                                seats[target_seat] = 1;
+                                                loaded = loaded + 1;
+                                                bill("Passenger officially seated at [" + tochars(target_seat) + "]\n");
+                                            }
+                                        }
+                                    } repeat (loaded < temp_input);
+                                }
+                                current_passengers = current_passengers + temp_input;
+                            }
+                        }
+                        location = 0; stop;
+
+                    choice 2: 
+                        location = 2; 
+                        bill("\n>> Arrived @ Unloading Area.\n"); 
+                        check(current_passengers == 0){ bill("Jeepney is empty!\n"); } instead {
+                            
+                            bill("Seats Occupied: ");
+                            pass(i = -1; i += 1; i < capacity){
+                                check(seats[i] == 1){ bill("[" + tochars(i) + "] "); }
+                            }
+                            bill("\n");
+
+                            order {
+                                bill("How many are leaving? (" + tochars(current_passengers) + " occupied): ");
+                                temp_input = topiece(take());
+                                check(temp_input > current_passengers){ bill("Exceeds headcount!\n"); }
+                                check(temp_input < 0){ bill("Input cannot be negative!\n"); }
+                            } repeat (temp_input > current_passengers or temp_input < 0);
+
+                            check(temp_input > 0){
+                                check(temp_input == current_passengers){
+                                    bill("All passengers leaving. Clearing all seats...\n");
+                                    pass(i = -1; i += 1; i < capacity){ seats[i] = 0; }
+                                } instead {
+                                    removed = 0;
+                                    order {
+                                        bill("\nCurrently Occupied: ");
+                                        pass(i = -1; i += 1; i < capacity){
+                                            check(seats[i] == 1){ bill("[" + tochars(i) + "] "); }
+                                        }
+                                        bill("\n--- SELECT OCCUPIED SEAT (O) --- \n");
+                                        billMap(seats, 0, capacity);
+                                        bill("\nPassenger " + tochars(removed + 1) + " of " + tochars(temp_input));
+                                        bill("\nEnter Seat Index to vacate (0-21): ");
+                                        target_seat = topiece(take());
+
+                                        check(target_seat < 0 or target_seat > 21){ 
+                                            bill("Invalid seat index!\n"); 
+                                        } instead {
+                                            check(seats[target_seat] == 0){ bill("Seat is already empty!\n"); } instead {
+                                                seats[target_seat] = 0;
+                                                removed = removed + 1;
+                                                bill(">> Seat [" + tochars(target_seat) + "] is now vacant.\n");
+                                            }
+                                        }
+                                    } repeat (removed < temp_input);
+                                }
+                                current_passengers = current_passengers - temp_input;
+                            }
+                        }
+                        location = 0; stop;
+
+                    choice 3: 
+                        bill("\n---JeepNey Seat Index----------------------\n");
+                        billMap(seats, 0, capacity);
+                        bill("\n");
+                        stop;
+
+                    choice 4: bill("Ending shift.\n"); stop;
+                }
+            }
+        } repeat (choice1 != 4);
+
+        bill("\nRestart? (y/n): ");
+        playAgain = take();
+    } repeat (playAgain == "y");
+}
+--end
+3
+4
+n
+--end
+
+==============================
+  PLATTER JEEPNEY DASHBOARD   
+==============================
+Status: Cruising...
+Headcount: 0/22
+------------------------------
+1-Drive to Loading Area
+2-Drive to Unloading Area
+3-Show Map
+4-Exit
+Choice: 3
+
+---JeepNey Seat Index----------------------
+ X | X | X | X | X | X | X | X | X | X | X |
+ X |
+
+ D | X | X | X | X | X | X | X | X | X | X |
+
+==============================
+  PLATTER JEEPNEY DASHBOARD   
+==============================
+Status: Cruising...
+Headcount: 0/22
+------------------------------
+1-Drive to Loading Area
+2-Drive to Unloading Area
+3-Show Map
+4-Exit
+Choice: 4
+Ending shift.
+
+Restart? (y/n): n
