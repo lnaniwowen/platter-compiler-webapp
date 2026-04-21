@@ -1,0 +1,190 @@
+## 
+Military Time to Standard Time and vice versa
+##
+prepare chars of militaryToStandard(piece of hours, piece of mins) {
+    chars of result = "", period = "AM", formattedMins = "";
+    piece of displayHours = hours;
+    
+    check(hours >= 12) {
+        period = "PM";
+        check(hours > 12) {
+            displayHours = hours - 12;
+        }
+    } instead {
+        check(hours == 0) {
+            displayHours = 12;
+        }
+    }
+    
+    check(mins < 10) {
+        formattedMins = "0" + tochars(mins);
+    } instead {
+        formattedMins = tochars(mins);
+    }
+    
+    result = tochars(displayHours) + ":" + formattedMins + " " + period;
+    serve result;
+}
+
+prepare chars of standardToMilitary(piece of hours, piece of mins, chars of period) {
+    chars of result = "", formattedHours = "", formattedMins = "";
+    piece of militaryHours = hours;
+    
+    check(period == "PM") {
+        check(hours != 12) {
+            militaryHours = hours + 12;
+        }
+    } instead {
+        check(hours == 12) {
+            militaryHours = 0;
+        }
+    }
+    
+    check(militaryHours < 10) {
+        formattedHours = "0" + tochars(militaryHours);
+    } instead {
+        formattedHours = tochars(militaryHours);
+    }
+    
+    check(mins < 10) {
+        formattedMins = "0" + tochars(mins);
+    } instead {
+        formattedMins = tochars(mins);
+    }
+    
+    result = formattedHours + formattedMins;
+    serve result;
+}
+
+start() {
+    chars of input = "", timeInput = "", period = "";
+    piece of hours = 0, mins = 0;
+    flag of isValidInput = down, continueLoop = up;
+    chars of result = "";
+    chars of hourStr;
+    chars of minStr;
+    
+    order {
+        bill("\n=== Military Time Converter ===\n");
+        bill("[1] Military to Standard Time\n");
+        bill("[2] Standard to Military Time\n");
+        bill("[3] Exit\n");
+        bill("Enter your choice (1/2/3): ");
+        
+        input = take();
+        
+        menu(input) {
+            choice "1": 
+                bill("\nEnter military time (HHMM format, e.g., 1330): ");
+                timeInput = take();
+                
+                hourStr = copy(timeInput, 1, 2);
+                minStr = copy(timeInput, 3, 4);
+                hours = topiece(hourStr);
+                mins = topiece(minStr);
+                
+                isValidInput = down;
+                check(hours >= 0 and hours <= 24 and mins >= 0 and mins <= 59) {
+                    isValidInput = up;
+                }
+                
+                check(isValidInput == up) {
+                    result = militaryToStandard(hours, mins);
+                    bill("Standard Time: " + result + "\n");
+                } instead {
+                    bill("Invalid time input. Hours must be 0-24, minutes 0-59.\n");
+                }
+            	stop;
+            
+            choice "2": 
+                bill("\nEnter standard time:\n");
+                
+                isValidInput = down;
+                order {
+                    bill("Hours (1-12): ");
+                    hours = topiece(take());
+                    check(hours >= 1 and hours <= 12) {
+                        isValidInput = up;
+                    } instead {
+                        bill("Invalid hours. Please enter 1-12.\n");
+                    }
+                } repeat(isValidInput == down);
+                
+                isValidInput = down;
+                order {
+                    bill("Minutes (0-59): ");
+                    mins = topiece(take());
+                    check(mins >= 0 and mins <= 59) {
+                        isValidInput = up;
+                    } instead {
+                        bill("Invalid minutes. Please enter 0-59.\n");
+                    }
+                } repeat(isValidInput == down);
+                
+                isValidInput = down;
+                order {
+                    bill("Period (AM/PM): ");
+                    period = take();
+                    check(period == "AM" or period == "PM") {
+                        isValidInput = up;
+                    } instead {
+                        bill("Invalid period. Please enter AM or PM.\n");
+                    }
+                } repeat(isValidInput == down);
+                
+                result = standardToMilitary(hours, mins, period);
+                bill("Military Time: " + result + "\n");
+            	stop;
+            
+            choice "3": 
+                bill("\nProgram Exited!\n");
+                continueLoop = down;
+            	stop;
+            
+            usual: 
+                bill("Invalid choice.\n");
+            	stop;
+        }
+    } repeat(continueLoop == up);
+}
+--end
+1
+1350
+2
+12
+12
+am
+AM
+3
+--end
+
+=== Military Time Converter ===
+[1] Military to Standard Time
+[2] Standard to Military Time
+[3] Exit
+Enter your choice (1/2/3): 1
+
+Enter military time (HHMM format, e.g., 1330): 1350
+Standard Time: 1:50 PM
+
+=== Military Time Converter ===
+[1] Military to Standard Time
+[2] Standard to Military Time
+[3] Exit
+Enter your choice (1/2/3): 2
+
+Enter standard time:
+Hours (1-12): 12
+Minutes (0-59): 12
+Period (AM/PM): am
+Invalid period. Please enter AM or PM.
+Period (AM/PM): AM
+Military Time: 0012
+
+=== Military Time Converter ===
+[1] Military to Standard Time
+[2] Standard to Military Time
+[3] Exit
+Enter your choice (1/2/3): 3
+
+Program Exited!

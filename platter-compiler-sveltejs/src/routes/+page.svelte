@@ -1,5 +1,5 @@
 <script lang="ts">
-	// Restored functionality: bind editor, call backend, populate lexer table, and show terminal messages
+	// Restored functionality: bind editor, call backend, and show terminal messages
 	import {
 		check,
 		copy,
@@ -8,11 +8,7 @@
 		darkmode1,
 		darkBg,
 		lightBg,
-		editor,
-		editor1,
 		errorIcon,
-		errors,
-		errors1,
 		favicon,
 		lightmode,
 		logo,
@@ -29,6 +25,7 @@
 		table,
 		warning
 	} from '$lib';
+	import { editor as editorSvg } from '$lib/assets';
 
 	import { onMount, onDestroy } from 'svelte';
 	import {
@@ -38,6 +35,7 @@
 		saveContent,
 		copyToClipboard
 	} from '$lib/utils/browser';
+
 
 	export let data;
 
@@ -126,6 +124,7 @@
 
 	let theme: 'dark' | 'light' = 'dark';
 	let activeTab: 'lexical' | 'syntax' | 'semantic' = 'lexical';
+	let rightPanelTab: 'terminal' | 'lexer' = 'terminal';
 
 	let codeInput = `sip of x = 42.2;
 sip of y = 3.67;
@@ -158,9 +157,31 @@ start() {
 	const lexerRows: Array<{ lexeme: string; token: string }> = [];
 	let tokens: Token[] = [];
 	let isAnalyzing = false;
-	
-	let isWaitingForInput = false;
-	let terminalInputText = '';
+
+	// Resizable panels
+	let gridEl: HTMLElement | null = null;
+	let leftWidthPercent = 65;
+	let isResizingPanel = false;
+
+	function startPanelResize(e: MouseEvent) {
+		isResizingPanel = true;
+		document.addEventListener('mousemove', doPanelResize);
+		document.addEventListener('mouseup', stopPanelResize);
+		e.preventDefault();
+	}
+	function doPanelResize(e: MouseEvent) {
+		if (!isResizingPanel || !gridEl) return;
+		const rect = gridEl.getBoundingClientRect();
+		const newLeft = ((e.clientX - rect.left) / rect.width) * 100;
+		leftWidthPercent = Math.min(Math.max(newLeft, 15), 85);
+		document.body.style.cursor = 'col-resize';
+	}
+	function stopPanelResize() {
+		isResizingPanel = false;
+		document.removeEventListener('mousemove', doPanelResize);
+		document.removeEventListener('mouseup', stopPanelResize);
+		document.body.style.cursor = '';
+	}
 
 	// Pyodide integration
 	let pyodide: any = null;
@@ -172,7 +193,23 @@ start() {
 	let cmInstance: any = null;
 	let errorMarkers: any[] = []; // Track CodeMirror text markers for error highlighting
 	let handleGlobalCtrlEnter: ((event: KeyboardEvent) => void) | null = null;
+	let editorPanelEl: HTMLElement | null = null;
+	let terminalPanelEl: HTMLElement | null = null;
+	let panelSyncObserver: ResizeObserver | null = null;
+	let isWaitingForInput = false;
+	let terminalInputText = '';
 	const CTRL_ENTER_HINT_SEEN_KEY = 'platter_ctrl_enter_hint_seen_v1';
+
+	function syncTerminalPanelHeight() {
+		if (!editorPanelEl || !terminalPanelEl) return;
+		const editorRect = editorPanelEl.getBoundingClientRect();
+		const terminalRect = terminalPanelEl.getBoundingClientRect();
+		const targetHeight = Math.round(editorRect.bottom - terminalRect.top);
+		if (targetHeight > 0) {
+			terminalPanelEl.style.height = `${targetHeight+10}px`;
+			terminalPanelEl.style.minHeight = `${targetHeight+10}px`;
+		}
+	}
 
 	function showFirstVisitCtrlEnterHint() {
 		if (typeof window === 'undefined') return;
@@ -186,7 +223,7 @@ start() {
 	}
 
 	// file input for opening .platter files
-	let fileInputEl: HTMLInputElement;
+	let fileInputEl: HTMLInputElement | null = null;
 
 	function openFileDialog() {
 		normalizeCurlyQuotes();
@@ -334,12 +371,23 @@ start() {
 		showFirstVisitCtrlEnterHint();
 
 		handleGlobalCtrlEnter = (event: KeyboardEvent) => {
-			const isCtrlEnter = event.ctrlKey && event.key === 'Enter';
-			if (!isCtrlEnter || event.defaultPrevented || event.repeat) return;
-			event.preventDefault();
-			analyzeSemantic(true);
+			if (event.defaultPrevented || event.repeat) return;
+			if (event.ctrlKey && event.key === 'Enter') {
+				event.preventDefault();
+				analyzeSemantic(true);
+			} else if (event.ctrlKey && event.key === '1') {
+				event.preventDefault();
+				analyzeLexical();
+			} else if (event.ctrlKey && event.key === '2') {
+				event.preventDefault();
+				analyzeSyntax();
+			} else if (event.ctrlKey && event.key === '3') {
+				event.preventDefault();
+				analyzeSemantic(false);
+			}
 		};
 		window.addEventListener('keydown', handleGlobalCtrlEnter);
+		window.addEventListener('resize', syncTerminalPanelHeight);
 
 		try {
 			// load CodeMirror assets from CDN (lightweight integration)
@@ -468,9 +516,10 @@ start() {
 					mode: 'platter',
 					matchBrackets: true,
 					extraKeys: {
-						'Ctrl-Enter': function() {
-							analyzeSemantic(true);
-						},
+						'Ctrl-Enter': function() { analyzeSemantic(true); },
+						'Ctrl-1': function() { analyzeLexical(); },
+						'Ctrl-2': function() { analyzeSyntax(); },
+						'Ctrl-3': function() { analyzeSemantic(false); },
 						'Ctrl-/': function(cm: any) {
 							const doc = cm.getDoc();
 							const sel = doc.getSelection();
@@ -518,9 +567,27 @@ start() {
 		} catch (err) {
 			console.warn('Failed to load CodeMirror from CDN:', err);
 		}
+
+		// Keep terminal panel bottom-aligned with editor panel even when controls wrap.
+		requestAnimationFrame(() => {
+			syncTerminalPanelHeight();
+			if (typeof ResizeObserver !== 'undefined') {
+				panelSyncObserver = new ResizeObserver(() => syncTerminalPanelHeight());
+				if (editorPanelEl) panelSyncObserver.observe(editorPanelEl);
+				if (terminalPanelEl?.parentElement) panelSyncObserver.observe(terminalPanelEl.parentElement);
+			}
+		});
 	});
 
 	onDestroy(() => {
+		document.removeEventListener('mousemove', doPanelResize);
+		document.removeEventListener('mouseup', stopPanelResize);
+		window.removeEventListener('resize', syncTerminalPanelHeight);
+		if (panelSyncObserver) {
+			panelSyncObserver.disconnect();
+			panelSyncObserver = null;
+		}
+
 		if (handleGlobalCtrlEnter) {
 			window.removeEventListener('keydown', handleGlobalCtrlEnter);
 			handleGlobalCtrlEnter = null;
@@ -538,6 +605,7 @@ start() {
 	let termMessages: TermMsg[] = [];
 
 
+	// Compute error count: treat messages that start with "Lexical OK" as non-errors (count as zero)
 	$: errorCount = termMessages.filter((m) => m.icon === errorIcon).length;
 
 	function setTerminalOk(message = 'No Error') {
@@ -704,11 +772,14 @@ result
 		}
 	}
 
+
+
 	async function analyzeSemantic(runTacInterpreter = false) {
 		normalizeCurlyQuotes();
 		const startTime = performance.now();
 		let analysisStatus = 'error';
 		let terminalOutput = '';
+
 
 		// Run lexical analysis first, skip logging to combine outputs
 		const lexicalResult = await analyzeLexical(true);
@@ -728,7 +799,7 @@ result
 					pyodide.globals.set('run_ir_pipeline', runTacInterpreter);
 
 					// Run AST parser and semantic analysis
-					const result = await pyodide.runPythonAsync(`
+					const semanticPythonScript = `
 import sys
 import re
 import json
@@ -829,68 +900,85 @@ try:
     ir_tac_optimized_text = ""
     execution_output = ""
     execution_success = False
+    execution_paused = False
     execution_error = ""
     execution_globals = {}
-    execution_paused = False
     execution_exit_message = ""
     execution_terminate_message = ""
-    if run_ir_pipeline:
-        try:
-            ir_gen = __import__('app.intermediate_code.ir_generator', fromlist=['IRGenerator']).IRGenerator()
-            tac_instructions, quad_table = ir_gen.generate(ast)
-            formatter = __import__('app.intermediate_code.output_formatter', fromlist=['IRFormatter']).IRFormatter()
-            ir_tac_text = formatter.format_tac_text(tac_instructions)
-            ir_quads_text = formatter.format_quadruples_text(quad_table)
-            print("")
-            print("="*80)
-            print("Intermediate Code (Three Address Code)")
-            print("="*80)
-            print(ir_tac_text)
-            print("")
-            print("="*80)
-            print("Intermediate Code (Quadruples)")
-            print("="*80)
-            print(ir_quads_text)
-            optimizer_module = __import__('app.code_optimization.optimizer_manager', fromlist=['OptimizerManager', 'OptimizationLevel'])
-            OptimizerManager = optimizer_module.OptimizerManager
-            OptimizationLevel = optimizer_module.OptimizationLevel
-            optimizer = OptimizerManager(OptimizationLevel.STANDARD)
-            optimized_tac = optimizer.optimize_tac(tac_instructions)
-            ir_tac_optimized_text = formatter.format_tac_text(optimized_tac)
-            print("")
-            print("="*80)
-            print("Optimized IR (Three Address Code - Standard Level)")
-            print("="*80)
-            print(ir_tac_optimized_text)
-            print("")
-            print("="*80)
-            print("Program Execution (IR Interpreter)")
-            print("="*80)
-            
-            interpreter_module = __import__('app.interpreter.ir_interpreter', fromlist=['TACInterpreter'])
-            TACInterpreter = interpreter_module.TACInterpreter
-            interpreter = TACInterpreter(optimized_tac)
-            import sys
-            sys.modules['__main__'].active_interpreter = interpreter
-            exec_result = interpreter.run()
-            
-            execution_output = exec_result.get("output", "")
-            execution_success = exec_result.get("success", False)
-            execution_error = exec_result.get("error", "")
-            execution_paused = exec_result.get("paused", False)
-            execution_globals = exec_result.get("globals", {})
-            execution_exit_message = exec_result.get("exit_message", "")
-            execution_terminate_message = exec_result.get("terminate_message", "")
-            print("[Execution OK]" if execution_success else "[Execution Paused]" if execution_paused else f"[Execution Error] {execution_error}")
-            print(execution_output if execution_output else "(no output)")
-        except Exception as ir_err:
-            import traceback
-            print(f"IR generation error: {str(ir_err)}")
-            traceback.print_exc()
-            execution_output = ""
-            execution_success = False
-            execution_error = str(ir_err)
-            execution_globals = {}
+	if run_ir_pipeline:
+		try:
+			ir_gen = __import__('app.intermediate_code.ir_generator', fromlist=['IRGenerator']).IRGenerator()
+			tac_instructions, quad_table = ir_gen.generate(ast)
+			formatter = __import__('app.intermediate_code.output_formatter', fromlist=['IRFormatter']).IRFormatter()
+			ir_tac_text = formatter.format_tac_text(tac_instructions)
+			ir_quads_text = formatter.format_quadruples_text(quad_table)
+
+			print("")
+			print("=" * 80)
+			print("Intermediate Code (Three Address Code)")
+			print("=" * 80)
+			print(ir_tac_text)
+
+			print("")
+			print("=" * 80)
+			print("Intermediate Code (Quadruples)")
+			print("=" * 80)
+			print(ir_quads_text)
+
+			optimizer_module = __import__('app.code_optimization.optimizer_manager', fromlist=['OptimizerManager', 'OptimizationLevel'])
+			OptimizerManager = optimizer_module.OptimizerManager
+			OptimizationLevel = optimizer_module.OptimizationLevel
+			optimizer = OptimizerManager(OptimizationLevel.STANDARD)
+			optimized_tac = optimizer.optimize_tac(tac_instructions)
+			ir_tac_optimized_text = formatter.format_tac_text(optimized_tac)
+
+			print("")
+			print("=" * 80)
+			print("Optimized IR (Three Address Code - Standard Level)")
+			print("=" * 80)
+			print(ir_tac_optimized_text)
+
+			print("")
+			print("=" * 80)
+			print("Program Execution (IR Interpreter)")
+			print("=" * 80)
+
+			interpreter_module = __import__('app.interpreter.ir_interpreter', fromlist=['TACInterpreter'])
+			TACInterpreter = interpreter_module.TACInterpreter
+			interpreter = TACInterpreter(optimized_tac)
+			import sys
+			sys.modules['__main__'].active_interpreter = interpreter
+			exec_result = interpreter.run()
+			execution_output = exec_result.get("output", "")
+			execution_success = exec_result.get("success", False)
+			execution_error = exec_result.get("error", "")
+			execution_paused = exec_result.get("paused", False)
+			execution_globals = exec_result.get("globals", {})
+			execution_exit_message = exec_result.get("exit_message", "")
+			execution_terminate_message = exec_result.get("terminate_message", "")
+
+			if execution_success:
+				print("[Execution OK]")
+			elif execution_paused:
+				print("[Execution Paused - waiting for input]")
+			else:
+				print(f"[Execution Error] {execution_error}")
+
+			if execution_output:
+				print(execution_output)
+			elif execution_success:
+				print("(no output)")
+		except Exception as ir_err:
+			import traceback
+			print(f"IR generation error: {str(ir_err)}")
+			traceback.print_exc()
+			execution_output = ""
+			execution_success = False
+			execution_paused = False
+			execution_error = str(ir_err)
+			execution_globals = {}
+			execution_exit_message = ""
+			execution_terminate_message = ""
     else:
         print("")
         print("="*80)
@@ -968,8 +1056,8 @@ try:
             "ir_tac_optimized": ir_tac_optimized_text,
             "execution_output": execution_output,
             "execution_success": execution_success,
-            "execution_error": execution_error,
             "execution_paused": execution_paused,
+            "execution_error": execution_error,
             "execution_globals": json.dumps(execution_globals),
             "execution_exit_message": execution_exit_message,
             "execution_terminate_message": execution_terminate_message,
@@ -1006,8 +1094,8 @@ try:
             "ir_tac_optimized": ir_tac_optimized_text,
             "execution_output": execution_output,
             "execution_success": execution_success,
-            "execution_error": execution_error,
             "execution_paused": execution_paused,
+            "execution_error": execution_error,
             "execution_globals": json.dumps(execution_globals),
             "execution_exit_message": execution_exit_message,
             "execution_terminate_message": execution_terminate_message,
@@ -1028,7 +1116,8 @@ except Exception as e:
     result = {"success": False, "message": f"Semantic analysis failed: {str(e)}"}
 
 result
-				`);
+				`;
+					const result = await pyodide.runPythonAsync(semanticPythonScript.replace(/\t/g, '    '));
 
 				const data = result.toJs({ dict_converter: Object.fromEntries });
 
@@ -1038,8 +1127,9 @@ result
 					const warningMarkers = data.error_markers ? JSON.parse(data.error_markers) : [];
 					if (warningMarkers.length > 0) addErrorMarkers(warningMarkers);
 					const successMsgs: TermMsg[] = [];
+
 					if (runTacInterpreter) {
-						// Ctrl+Enter: show runtime-only messages and no check icon.
+						// Show any output produced before pause/completion
 						if (data.execution_output) {
 							const lines = data.execution_output.split('\n');
 							for (let i = 0; i < lines.length; i++) {
@@ -1047,9 +1137,8 @@ result
 								successMsgs.push({ text: lines[i] });
 							}
 						}
-
 						if (data.execution_success) {
-							// Append exit code message (separate field, not part of output)
+							// Append exit code message if present
 							if (data.execution_exit_message) {
 								const exitLines = data.execution_exit_message.split('\n');
 								for (const l of exitLines) {
@@ -1061,7 +1150,7 @@ result
 							isWaitingForInput = true;
 						} else if (data.execution_error) {
 							successMsgs.push({ icon: errorIcon, text: `Runtime Error: ${data.execution_error}` });
-							// Append termination message (separate field, not part of output)
+							// Append termination message if present
 							if (data.execution_terminate_message) {
 								successMsgs.push({ text: data.execution_terminate_message });
 							}
@@ -1151,6 +1240,7 @@ result
 									// Ignore malformed globals payload.
 								}
 							}
+
 						} else {
 							console.log('%cStatus: Runtime Error ✗', 'color: #ff5252; font-weight: bold');
 							console.log(data.execution_error || 'Unknown error');
@@ -1715,50 +1805,23 @@ tokens
 	</header>
 
 	<!-- Main grid: left workspace and right sidebar -->
-	<div class="grid">
+	<div class="grid" bind:this={gridEl} style="--left-width: {leftWidthPercent}%">
 		<!-- LEFT WORKSPACE -->
 		<section class="left">
 			<!-- Toolbar row -->
 			<div class="toolbar">
-				<button class="pill {activeTab === 'lexical' ? 'active' : ''}" on:click={() => analyzeLexical()}>
-					{#if theme === 'dark'}
-						<img class="icon" src={synSemLexIcon} alt="Lexical Icon" />
-					{:else}
-						<img class="icon" src={synSemLexIcon1} alt="Light Theme Icon" />
-					{/if}
-
-					<span>Lexical</span>
-				</button>
-				<!-- syntax and semantic methods to be replacesrd -->
-				<button class="pill {activeTab === 'syntax' ? 'active' : ''}" on:click={analyzeSyntax}>
-					{#if theme === 'dark'}
-						<img class="icon" src={synSemLexIcon} alt="Lexical Icon" />
-					{:else}
-						<img class="icon" src={synSemLexIcon1} alt="Light Theme Icon" />
-					{/if}
-					<span>Syntax</span>
-				</button>
-				<button class="pill {activeTab === 'semantic' ? 'active' : ''}" on:click={() => analyzeSemantic(false)}>
-					{#if theme === 'dark'}
-						<img class="icon" src={synSemLexIcon} alt="Semantic Icon" />
-					{:else}
-						<img class="icon" src={synSemLexIcon1} alt="Light Theme Icon" />
-					{/if}
-					<span>Semantic</span>
-				</button>
-
-				<button class="pill run-btn" on:click={() => analyzeSemantic(true)} title="Run TAC and Interpreter (Ctrl+Enter)">
+				<button class="pill active" on:click={() => analyzeSemantic(true)}>
 					{#if theme === 'dark'}
 						<img class="icon" src={synSemLexIcon} alt="Run Icon" />
 					{:else}
 						<img class="icon" src={synSemLexIcon1} alt="Run Icon" />
 					{/if}
-					<span>Run</span>
+					<span>Run Code</span>
 				</button>
 
 				<div class="spacer"></div>
 				<!-- replace icons based on theme -->
-				<button
+				<!-- <button
 					class="icon-btn"
 					title="refresh"
 					on:click={() => {
@@ -1775,25 +1838,26 @@ tokens
 					{:else}
 						<img class="icon" src={refresh1} alt="Light Theme Icon" />
 					{/if}</button
-				>
-				<button class="icon-btn" title="copy" on:click={handleCopyToClipboard}
+				> -->
+				<!-- <button class="icon-btn" title="copy" on:click={handleCopyToClipboard}
 					>{#if theme === 'dark'}
 						<img class="icon" src={copy} alt="Dark Theme Icon" />
 					{:else}
 						<img class="icon" src={copy1} alt="Light Theme Icon" />
 					{/if}</button
-				>
-				<button class="icon-btn" title="Theme" on:click={toggleTheme}>
+				> -->
+				<!-- <button class="icon-btn" title="Theme" on:click={toggleTheme}>
 					{#if theme === 'dark'}
 						<img class="icon" src={lightmode} alt="Dark Theme Icon" />
 					{:else}
 						<img class="icon" src={darkmode} alt="Light Theme Icon" />
 					{/if}
-				</button>
+				</button> -->
 			</div>
 
 			<!-- Editor canvas -->
-			<div class="panel editor" style={`--editor-img: url(${theme === 'dark' ? editor : editor1})`}>
+			<div class="panel editor" style={`--editor-img: url(${editorSvg})`} bind:this={editorPanelEl}>
+				<img class="editor-frame" src={editorSvg} alt="" aria-hidden="true" />
 				<textarea
 					class="editor-area"
 					bind:this={textareaEl}
@@ -1803,108 +1867,132 @@ tokens
 				></textarea>
 			</div>
 
-			<!-- Terminal panel -->
-			<div
-				class="panel terminal"
-				style={`--terminal-img: url(${theme === 'dark' ? errors : errors1})`}
-			>
-				<div class="terminal-head">
-					<span class="title">Terminal</span>
-					<!-- error count (ignore 'Lexical OK' messages) -->
-
-					<div class="counter">
-						<span>Errors: {errorCount} </span>
-						{#if errorCount > 0}
-							<img class="icon" src={warning} alt="warning" />
-						{/if}
-					</div>
-				</div>
-				<div class="terminal-body">
-					{#each termMessages as e}
-						<div class="trow">
-							{#if e.icon}
-								<img class="ticon-img" src={e.icon} alt="" />
-							{/if}
-							<span class="tmsg">{e.text}</span>
-						</div>
-					{/each}
-					{#if isWaitingForInput}
-						<div class="trow input-row">
-							<span class="tmsg prompt-caret">&gt; </span>
-							<!-- svelte-ignore a11y-autofocus -->
-							<input 
-								type="text" 
-								class="terminal-input" 
-								bind:value={terminalInputText}
-								on:keydown={(e) => { if (e.key === 'Enter') handleTerminalInput() }}
-								autofocus
-							/>
-						</div>
-					{/if}
-				</div>
-			</div>
 		</section>
+
+		<!-- Panel Resizer -->
+		<button
+			type="button"
+			class="resizer"
+			on:mousedown={startPanelResize}
+			aria-label="Drag to resize panels"
+			title="Drag to resize panels"
+		></button>
 
 		<!-- RIGHT SIDEBAR -->
 		<aside class="right">
-			<div class="actions">
-				<button
+			<!-- <div class="actions"> -->
+				<!-- <button
 					class="btn"
 					on:click={() => {
 						normalizeCurlyQuotes();
 						const newWindow = window.open(window.location.href, '_blank');
 						if (newWindow) setTimeout(() => (newWindow.document.body.style.zoom = '80%'), 100);
 					}}
-				>
-					{#if theme === 'dark'}
+				> -->
+					<!-- {#if theme === 'dark'}
 						<img class="icon" src={newFile} alt="Dark Theme Icon" />
 					{:else}
 						<img class="icon" src={newFile1} alt="Light Theme Icon" />
 					{/if} <span>New Tab</span></button
-				>
-				<button class="btn" type="button" on:click={openFileDialog}>
+				> -->
+				<!-- <button class="btn" type="button" on:click={openFileDialog}>
 					{#if theme === 'dark'}
 						<img class="icon" src={openFile} alt="Dark Theme Icon" />
 					{:else}
 						<img class="icon" src={openFile1} alt="Light Theme Icon" />
 					{/if}
 					<span>Open File</span></button
-				>
+				> -->
 				<!-- hidden file input for opening .platter files -->
-				<input
+				<!-- <input
 					type="file"
 					accept=".platter"
 					bind:this={fileInputEl}
 					on:change={handleFileInput}
 					style="display:none"
-				/>
-				<button class="btn" type="button" on:click={saveFileDialog}>
+				/> -->
+				<!-- <button class="btn" type="button" on:click={saveFileDialog}>
 					{#if theme === 'dark'}
 						<img class="icon" src={saveFile} alt="Dark Theme Icon" />
 					{:else}
 						<img class="icon" src={saveFile1} alt="Light Theme Icon" />
 					{/if} <span>Save File</span></button
-				>
-			</div>
+				> -->
+			<!-- </div> -->
 
-			<div class="panel table" style={`--table-img: url(${table})`}>
-				<div class="table-title">Lexer Table</div>
-				<div class="table-head">
-					<div>Lexeme</div>
-					<div>Token</div>
+			<div class="panel table" style={`--table-img: url(${table})`} bind:this={terminalPanelEl}>
+				<!-- Tab bar -->
+				<div class="panel-tabs">
+					<button
+						id="tab-terminal"
+						class="panel-tab {rightPanelTab === 'terminal' ? 'panel-tab--active' : ''}"
+						type="button"
+						on:click={() => (rightPanelTab = 'terminal')}
+					>Terminal</button>
+					<button
+						id="tab-lexer"
+						class="panel-tab {rightPanelTab === 'lexer' ? 'panel-tab--active' : ''}"
+						type="button"
+						on:click={() => (rightPanelTab = 'lexer')}
+					>Lexer Table</button>
 				</div>
-				<div class="table-body">
-					{#if lexerRows.length === 0}
-						<div class="empty">No tokens yet</div>
-					{:else}
-						{#each lexerRows as row}
-							<div class="table-row">
-								<div>{row.lexeme}</div>
-								<div>{row.token}</div>
+
+				{#if rightPanelTab === 'terminal'}
+					<!-- Terminal view -->
+					<div class="table-title-row">
+						<div class="counter">
+							<span>Errors: {errorCount}</span>
+							{#if errorCount > 0}
+								<img class="icon" src={warning} alt="warning" />
+							{/if}
+						</div>
+					</div>
+					<div class="table-body">
+						{#if termMessages.length === 0}
+							<div class="empty">No terminal messages yet</div>
+						{:else}
+							{#each termMessages as e}
+								<div class="trow">
+									{#if e.icon}
+										<img class="ticon-img" src={e.icon} alt="" />
+									{/if}
+									<span class="tmsg">{e.text}</span>
+								</div>
+							{/each}
+						{/if}
+						{#if isWaitingForInput}
+							<div class="trow input-row">
+								<span class="tmsg prompt-caret">&gt; </span>
+								<!-- svelte-ignore a11y-autofocus -->
+								<input 
+									type="text" 
+									class="terminal-input" 
+									bind:value={terminalInputText}
+									on:keydown={(e) => { if (e.key === 'Enter') handleTerminalInput() }}
+									autofocus
+								/>
 							</div>
-						{/each}
-					{/if}
-				</div>
+						{/if}
+					</div>
+				{:else}
+					<!-- Lexer Table view -->
+					<div class="table-head">
+						<div>Lexeme</div>
+						<div>Token</div>
+					</div>
+					<div class="table-body">
+						{#if lexerRows.length === 0}
+							<div class="empty">No tokens yet</div>
+						{:else}
+							{#each lexerRows as row}
+								<div class="table-row">
+									<div>{row.lexeme}</div>
+									<div>{row.token}</div>
+								</div>
+							{/each}
+						{/if}
+					</div>
+				{/if}
 			</div>
 		</aside>
 	</div>
@@ -1929,13 +2017,20 @@ tokens
 		--outline: #ffffff;
 		--panel: rgba(255, 255, 255, 0.03);
 		--shadow: 0 0 0 2px var(--outline) inset;
+		--layout-gap: 20px;
+		--layout-pad: 16px;
+		--frame-height: 842px;
+		--editor-inset-x: 30px;
+		--editor-inset-y: 24px;
 		min-height: 100vh;
-		min-width: 100vw;
+		width: 100%;
+		min-width: 0;
+		box-sizing: border-box;
 		/* Use Svelte-provided CSS var for image */
 		background-image: var(--bg-img);
-		background-size: auto;
-		background-position: top left;
-		background-repeat: repeat;
+		background-size: cover;
+		background-position: center;
+		background-repeat: no-repeat;
 		background-color: #26262a; /* fallback color */
 		color: var(--ink);
 		font-family: 'Inter', Roboto, sans-serif;
@@ -1950,6 +2045,9 @@ tokens
 		--accent: #111;
 		--outline: #111;
 		background-image: var(--bg-img);
+		background-size: cover;
+		background-position: center;
+		background-repeat: no-repeat;
 		background-color: #e8e8ed; /* fallback color for light theme */
 	}
 
@@ -1965,11 +2063,6 @@ tokens
 		box-sizing: border-box;
 	}
 
-	.title {
-		font-size: 14px;
-		margin-left: 24px;
-		margin-bottom: 8px;
-	}
 	.brand {
 		display: flex;
 		align-items: center;
@@ -1998,11 +2091,13 @@ tokens
 	}
 
 	.grid {
-		display: grid;
+		display: flex;
+		flex-direction: row;
+		align-items: flex-start;
 		width: 100%;
-		grid-template-columns: minmax(60%, 1130px) minmax(420px, 1fr);
-		gap: 16px;
-		padding: 16px;
+		max-width: 100%;
+		box-sizing: border-box;
+		padding: var(--layout-pad);
 	}
 
 	.toolbar {
@@ -2010,12 +2105,12 @@ tokens
 		width: 100%;
 		align-items: center;
 		gap: 8px;
+		flex-wrap: wrap;
 		background: transparent;
 		color: var(--ink);
 		border-radius: 8px;
 		cursor: pointer;
-		margin-right: 8px;
-		margin-top: 12px;
+		margin: 0 0 8px 0;
 	}
 
 	.pill {
@@ -2029,7 +2124,6 @@ tokens
 		border-radius: 8px;
 		cursor: pointer;
 		box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.15) inset;
-		margin-right: 8px;
 	}
 	.pill.active {
 		background: rgba(255, 255, 255, 0.08);
@@ -2037,19 +2131,6 @@ tokens
 	.spacer {
 		flex: 1;
 	}
-	.icon-btn {
-		display: inline-flex;
-		align-items: center;
-		gap: 10px;
-		border: 4px solid var(--outline);
-		background: transparent;
-		color: var(--ink);
-		padding: 8px 12px;
-		border-radius: 8px;
-		cursor: pointer;
-		box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.15) inset;
-	}
-
 	/* toolbar icon image inside buttons */
 	.icon {
 		width: 18px;
@@ -2060,8 +2141,13 @@ tokens
 	.left {
 		display: flex;
 		flex-direction: column;
-		max-width: 1130px;
-		width: 100%;
+		gap: var(--layout-gap);
+		flex: 0 0 var(--left-width, 65%);
+		width: var(--left-width, 65%);
+		min-width: 0;
+		overflow: hidden;
+		padding: 0;
+		margin: 0;
 	}
 	.panel {
 		/* background: var(--panel); */
@@ -2072,55 +2158,41 @@ tokens
 		box-shadow: var(--shadow);
 	}
 	.editor {
-		/* use the `editor` SVG asset for background */
-		background-image: var(--editor-img);
-		/* show SVG at its intrinsic size */
-		background-position: left;
-		background-repeat: no-repeat;
-		/* keep normal panel border; do not scale image into a border */
+		position: relative;
+		overflow: hidden;
+		height: var(--frame-height);
+		min-height: var(--frame-height);
+		padding: 0;
 		border: none;
 		box-shadow: none;
 	}
-	.editor + .terminal {
-		margin-top: 10px;
-
-		border: none;
-	}
-
-	.terminal {
+	.editor-frame {
+		position: absolute;
+		inset: 0;
 		width: 100%;
-		background-image: var(--terminal-img);
-		/* show SVG at its intrinsic size */
-		background-position: left;
-		background-repeat: no-repeat;
-		/* keep normal panel border; do not scale image into a border */
-		border: none;
-		box-shadow: none;
-		outline: none;
-		font-family:
-			ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
-		font-size: 18px;
-		height: 300px;
+		height: 100%;
+		object-fit: fill;
+		object-position: left top;
+		pointer-events: none;
+		z-index: 0;
 	}
-
 	.editor-area {
-		width: 95.5%;
-		height: 400px;
+		position: absolute;
+		inset: var(--editor-inset-y) var(--editor-inset-x);
 		background: transparent;
-		color: var(--ink);
-		outline: none;
-		font-family:
-			ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
-		font-size: 18px;
-		margin-left: 30px;
-		margin-top: 60px;
-		margin-bottom: 80px;
+		z-index: 1;
+		box-sizing: border-box;
+		margin: 0;
 		border: none;
+		resize: none;
+		outline: none;
+		width: auto;
+		height: auto;
 	}
-
-	.terminal-head {
+	.table-title-row {
 		display: flex;
 		align-items: center;
+		justify-content: space-between;
 		margin-bottom: 8px;
 		color: var(--ink);
 		border: none;
@@ -2132,20 +2204,8 @@ tokens
 		gap: 8px;
 		border-radius: 10px;
 		margin: 0;
-		transform: scale(0.7);
-		margin-left: 400px;
-		margin-bottom: 6px;
-	}
-
-	.terminal-body {
-		height: 200px;
-		overflow: auto;
-		border: 4px solid var(--outline);
-		border-radius: 10px;
-		padding: 8px;
-		margin-left: 16px;
-		border: none;
-		box-shadow: none;
+		transform: scale(0.85);
+		transform-origin: right center;
 	}
 	.trow {
 		display: flex;
@@ -2170,39 +2230,48 @@ tokens
 
 	.right {
 		display: flex;
-		width: 100%;
+		flex: 1 1 0;
+		min-width: 0;
 		flex-direction: column;
-		gap: 12px;
+		gap: var(--layout-gap);
 		background: transparent;
 		color: var(--ink);
-		padding: 8px 12px;
+		padding: 0;
+		margin: 0;
 		border-radius: 8px;
 	}
-	.actions {
-		display: flex;
-		gap: 12px;
-		justify-content: space-between;
-
-		margin-right: 8px;
-		margin-top: 6px;
-		margin-bottom: 0px;
-	}
-	.btn {
-		flex: 24;
-		display: inline-flex;
-		align-items: center;
-		gap: 8px;
-		border: 4px solid var(--outline);
+	.resizer {
+		flex: 0 0 14px;
+		width: 14px;
+		padding: 0;
+		border: none;
 		background: transparent;
-		color: var(--ink);
-		padding: 8px 12px;
-		border-radius: 10px;
-		cursor: pointer;
-		scale: 1;
+		cursor: col-resize;
+		position: relative;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		z-index: 10;
+		user-select: none;
+		-webkit-user-select: none;
 	}
-
+	.resizer::after {
+		content: '';
+		width: 4px;
+		height: 52px;
+		background: var(--outline);
+		border-radius: 4px;
+		opacity: 0.35;
+		transition: opacity 0.15s ease, width 0.15s ease;
+		pointer-events: none;
+	}
+	.resizer:hover::after {
+		opacity: 0.85;
+		width: 6px;
+	}
 	.table {
-		height: 856px; /* retain table height like a textarea */
+		height: auto;
+		min-height: var(--frame-height);
 		display: flex;
 		flex-direction: column;
 		/* use the `editor` SVG asset for background */
@@ -2215,14 +2284,45 @@ tokens
 		box-shadow: none;
 	}
 	.table-title {
-		text-align: center;
+		text-align: left;
 		font-weight: 700;
-		margin-bottom: 8px;
+		margin-bottom: 0;
 		/* margin-top: 48px; */
 
 		border: none;
 		box-shadow: none;
 	}
+
+	/* Tab bar for the right panel */
+	.panel-tabs {
+		display: flex;
+		gap: 6px;
+		margin-bottom: 8px;
+	}
+	.panel-tab {
+		display: inline-flex;
+		align-items: center;
+		padding: 4px 14px;
+		border-radius: 8px;
+		border: 2px solid transparent;
+		background: transparent;
+		color: var(--ink-muted);
+		cursor: pointer;
+		font-weight: 600;
+		font-size: 0.85em;
+		transition: border-color 0.15s, color 0.15s, background 0.15s;
+	}
+	.panel-tab:hover {
+		color: var(--ink);
+		border-color: rgba(255,255,255,0.3);
+	}
+	.panel-tab--active {
+		color: var(--ink) !important;
+		border-color: var(--outline) !important;
+		background: rgba(255,255,255,0.07);
+	}
+
+	/* Lexer table row grid (2-column, same as main page) */
 	.table-head,
 	.table-row {
 		display: grid;
@@ -2230,7 +2330,6 @@ tokens
 		gap: 6px;
 		border: none;
 		box-shadow: none;
-		/* margin-left: 32px; */
 	}
 	.table-head {
 		border: 4px solid var(--outline);
@@ -2238,8 +2337,10 @@ tokens
 		padding: 8px;
 		font-weight: 600;
 		margin-bottom: 8px;
-		/* border: none;
-		box-shadow: none; */
+	}
+	.table-row {
+		border-bottom: 1px dashed rgba(255, 255, 255, 0.4);
+		padding: 6px 4px;
 	}
 	.table-body {
 		border: 4px solid var(--outline);
@@ -2256,28 +2357,41 @@ tokens
 		border: none;
 		box-shadow: none; */
 	}
-	.table-row {
-		border-bottom: 1px dashed rgba(255, 255, 255, 0.4);
-		padding: 6px 4px;
-	}
 	.empty {
 		opacity: 0.7;
 		text-align: center;
 		padding: 12px;
 	}
 
-	@media (max-width: 1500px) {
-		.left {
-			zoom: 0.75;
-		}
+	.terminal-input {
+		flex: 1;
+		background: transparent;
+		border: none;
+		outline: none;
+		color: var(--ink);
+		caret-color: var(--ink);
+		font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+		font-size: 18px;
+		padding: 0;
+		margin: 0;
+		/* Force browser to use theme colour for typed text, not system default */
+		-webkit-text-fill-color: var(--ink);
 	}
 
 	@media (max-width: 1280px) {
-		.left {
-			zoom: 1;
-		}
 		.grid {
-			grid-template-columns: 1fr;
+			flex-direction: column;
+		}
+		.left,
+		.right {
+			flex: none;
+			width: 100% !important;
+		}
+		.resizer {
+			display: none;
+		}
+		.ide {
+			--frame-height: 700px;
 		}
 	}
 
@@ -2299,18 +2413,18 @@ tokens
 	}
 
 	:global(.CodeMirror) {
-		height: 100% !important;
+		position: absolute !important;
+		inset: var(--editor-inset-y) var(--editor-inset-x) !important;
+		width: auto !important;
+		height: auto !important;
 		box-shadow: none !important;
 		border: none !important;
-		width: 97% !important;
-		height: 400px !important;
+		z-index: 1 !important;
 		outline: none !important;
 		font-family:
 			ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace !important;
 		/* font-size: 18px !important; */
-		margin-left: 10px !important;
-		margin-top: 60px !important;
-		margin-bottom: 80px !important;
+		margin: 0 !important;
 		border: none !important;
 	}
 
@@ -2328,13 +2442,7 @@ tokens
 		color: var(--ink-muted) !important;
 	} */
 
-	/* Apply the panel background image to the CodeMirror root so the editor shows your SVG */
-	/* :global(.panel.editor .CodeMirror) {
-		background-image: var(--editor-img) !important;
-		background-position: left !important;
-		background-repeat: no-repeat !important;
-		background-size: auto !important;
-	} */
+	/* Frame image is rendered via .editor-frame, so CodeMirror remains transparent above it */
 
 	/* Ensure preformatted code uses the monospace font and no wrapping */
 	:global(.CodeMirror pre) {
@@ -2482,31 +2590,5 @@ tokens
 	:global(.ide[data-theme='light'] .CodeMirror .cm-comment) {
 		color: #666666 !important;
 		font-style: italic !important;
-	}
-
-	.input-row {
-		display: flex;
-		align-items: center;
-		padding-left: 0px;
-	}
-	.prompt-caret {
-		margin-right: 8px;
-		color: #e6e6e6;
-		font-weight: bold;
-	}
-	.ide[data-theme='light'] .prompt-caret {
-		color: #1a1a1a;
-	}
-	.terminal-input {
-		background: transparent;
-		border: none;
-		color: #5af5b9;
-		font-family: inherit;
-		font-size: inherit;
-		outline: none;
-		flex-grow: 1;
-	}
-	.ide[data-theme='light'] .terminal-input {
-		color: #07603f;
 	}
 </style>
